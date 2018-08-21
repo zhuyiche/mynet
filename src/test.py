@@ -8,14 +8,15 @@ from config import Config
 import scipy.io as sio
 import cv2
 from encoder_append import *
+from eval import mymetrics
 
-weight_path = 'focal_double_resnet50_loss:fd_det:0.1_fkg:1_bkg:2_lr:0.01_train.h5'
+weight_path = 'multi_fcn36_loss:fd_det:0.13_fkg:0.5_bkg:0.5_lr:0.01_train.h5'
 ROOT_DIR = os.getcwd()
 if ROOT_DIR.endswith('src'):
     ROOT_DIR = os.path.dirname(ROOT_DIR)
 
 WEIGHT_DIR = os.path.join(ROOT_DIR, 'model_weights')
-IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'test')
+IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'train')
 #IMG_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det', 'test')
 epsilon = 1e-6
 
@@ -138,15 +139,16 @@ def eval_single_img(model, img_dir, print_img=True,
                     prob_threshold=None, print_single_result=True):
     image_path = os.path.join(IMG_DIR, img_dir, img_dir+ '.bmp')
     img = misc.imread(image_path)
-    img = misc.imresize(img, (512, 512))#, interp='nearest')
-    img = img / 255.
-    img -= np.mean(img, keepdims=True)
-    img /= (np.std(img, keepdims=True) + 1e-7)
-
-    cropped_img1 = img[0: 256, 0: 256, :]  # 1, 3
-    cropped_img2 = img[256: 512, 0: 256, :]  # 2, 4
-    cropped_img3 = img[0: 256, 256: 512, :]
-    cropped_img4 = img[256: 512, 256: 512, :]
+    img = misc.imresize(img, (256, 256))#, interp='nearest')
+    img = img - 128.0
+    img = img / 128.0
+    img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
+    output = model.predict(img)[0]
+    output = output[:, :, 1]
+    #cropped_img1 = img[0: 256, 0: 256, :]  # 1, 3
+    #cropped_img2 = img[256: 512, 0: 256, :]  # 2, 4
+    #cropped_img3 = img[0: 256, 256: 512, :]
+    #cropped_img4 = img[256: 512, 256: 512, :]
     #print('crop shape: ', cropped_img1.shape)
     #plt.imshow(cropped_img1)
     #plt.colorbar()
@@ -157,20 +159,22 @@ def eval_single_img(model, img_dir, print_img=True,
         output = output[:, :, 1]
         return output
 
-    crop_output1 = _predic_crop_image(cropped_img1)
-    crop_output2 = _predic_crop_image(cropped_img2)
-    crop_output3 = _predic_crop_image(cropped_img3)
-    crop_output4 = _predic_crop_image(cropped_img4)
+    #crop_output1 = _predic_crop_image(cropped_img1)
+    #crop_output2 = _predic_crop_image(cropped_img2)
+    #crop_output3 = _predic_crop_image(cropped_img3)
+    #crop_output4 = _predic_crop_image(cropped_img4)
 
-    output_up = np.concatenate((crop_output1, crop_output3), axis=1)
-    output_down = np.concatenate((crop_output2, crop_output4), axis=1)
-    output = np.concatenate((output_up, output_down), axis=0)
+   # output_up = np.concatenate((crop_output1, crop_output3), axis=1)
+   # output_down = np.concatenate((crop_output2, crop_output4), axis=1)
+    #output = np.concatenate((output_up, output_down), axis=0)
+
     if print_img:
         plt.imshow(output)
         plt.title(weight_path)
         plt.colorbar()
         plt.show()
     #print(output.shape)
+
     p, r, f1, tp = score_single_img(output, img_dir=img_dir, prob_threshold=prob_threshold, print_single_result=print_single_result)
     return p, r, f1, tp
 
@@ -243,6 +247,8 @@ def eval_weights_testset(weightsdir):
             print('current model is {} at threshold {}'.format(weight_dir, prob))
             avg_p, avg_r, avg_f1 = eval_testset(model, prob_threshold=prob, print_img=False,
                                                 print_single_result=False)
+            if np.round(avg_r) < 0.8:
+                break
             if weights_dict['best_p'] == 0:
                 weights_dict['best_p'], weights_dict['best_r'], weights_dict['best_f1'] = avg_p, avg_r, avg_f1
             else:
@@ -268,26 +274,31 @@ def eval_weights_testset(weightsdir):
         print('best f1 is {} with model {} at threshold {}'.format(weights_dict['best_f1'],
                                                                    weights_dict['best_f1_model'],
                                                                    weights_dict['best_f1_prob']))
-
+def test_11():
+    p, r, f1, tp = eval_single_img(Fcn_det().fcn36_deconv_backbone(), 'img11', print_img=True,
+                                   print_single_result=False,
+                                   prob_threshold=0.8)
+    print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(p, r, f1, tp))
 if __name__ == '__main__':
+    test_11()
     import time
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(Config.gpu1)
-    #eval_weights_testset(WEIGHT_DIR)
+    #os.environ["CUDA_VISIBLE_DEVICES"] = str(Config.gpu1)
     start = time.time()
     #weight_path = 'focal_double_resnet50_loss:fd_det:0.1_fkg:2_bkg:2_lr:0.01_train.h5'
     imgdir = 'img' + str(2)
     model = Fcn_det().fcn36_deconv_backbone()
+    #eval_weights_testset(WEIGHT_DIR)
     for weight in os.listdir(WEIGHT_DIR):
-        if 'loss:fd' in weight:
+        if 'loss:fd_det:' + str(Config.det_weight) in weight:
             print(weight)
             weightp = os.path.join(WEIGHT_DIR, weight)
             model.load_weights(weightp)
         #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
-            prob_threshhold = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+            prob_threshhold = [0.3, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
             #eval_single_img(model, imgdir)
             for prob in prob_threshhold:
                 print('The nms threshold is ', prob)
-                eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
+                eval_testset(model, prob_threshold=prob, print_img=True, print_single_result=False)
 
 
 
