@@ -168,12 +168,6 @@ def fcn_tune_loss_weight():
 if __name__ == '__main__':
    # if Config.gpu_count == 1:
        # os.environ["CUDA_VISIBLE_DEVICES"] = Config.gpu1
-    network = Deeplabv3Plus(backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
-    earlystop_callback = EarlyStopping(monitor='val_loss',
-                                   patience=5,
-                                   min_delta=0.001)
-    if Config.gpu_count != 1:
-        network = keras.utils.multi_gpu_model(network, gpus=Config.gpu_count)
     print('------------------------------------')
     print('This model is using {}'.format(Config.backbone))
     print()
@@ -181,6 +175,12 @@ if __name__ == '__main__':
     BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
     print('batch size is :', BATCH_SIZE)
     EPOCHS = Config.epoch
+    network = Deeplabv3Plus(backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
+    earlystop_callback = EarlyStopping(monitor='val_loss',
+                                   patience=5,
+                                   min_delta=0.001)
+    if Config.gpu_count != 1:
+        network = keras.utils.multi_gpu_model(network, gpus=Config.gpu_count)
 
     data = data_prepare(print_input_shape=True, print_image_shape=True)
     optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
