@@ -12,6 +12,7 @@ from imgaug import augmenters as iaa
 import imgaug as ia
 import keras
 import scipy.misc as misc
+import skimage
 
 weight_decay = 0.005
 epsilon = 1e-7
@@ -69,7 +70,7 @@ def load_dataset(dataset, type, reshape_size=None, det=True, cls=True, preprocss
                 cls_mask = misc.imread(cls_mask_path, mode='L')
                 if reshape_size != None:
                     cls_mask = misc.imresize(cls_mask, reshape_size, interp='nearest')
-                #cls_mask = cls_mask.reshape(cls_mask.shape[0], cls_mask.shape[1], 1)
+                cls_mask = cls_mask.reshape(cls_mask.shape[0], cls_mask.shape[1], 1)
                 cls_masks.append(cls_mask)
 
     print(len(imgs), len(det_masks), len(cls_masks))
@@ -131,8 +132,11 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
         print('valid_imgs: {}, valid_cls_masks: {}'.format(valid_imgs.shape, valid_cls_masks.shape))
         print('test_imgs: {}, test_cls_masks: {}'.format(test_imgs.shape, test_cls_masks.shape))
         print()
-    train_cls_masks.reshape((train_cls_masks.shape[0], train_cls_masks.shape[1], train_cls_masks.shape[2], 1))
-    valid_cls_masks.reshape((valid_cls_masks.shape[0], train_cls_masks.shape[1], train_cls_masks.shape[2], 1))
+    #train_cls_masks.reshape((train_cls_masks.shape[0], train_cls_masks.shape[1], train_cls_masks.shape[2], 1))
+    #valid_cls_masks.reshape((valid_cls_masks.shape[0], train_cls_masks.shape[1], train_cls_masks.shape[2], 1))
+    np.set_printoptions(np.nan)
+    print(train_cls_masks.shape)
+    print('unique: ', np.unique(train_cls_masks))
     train_cls = np_utils.to_categorical(train_cls_masks, 5)
     #train_cls = reshape_mask(train_cls_masks, train_cls, 5)
 
@@ -177,7 +181,7 @@ if __name__ == '__main__':
     BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
     print('batch size is :', BATCH_SIZE)
     EPOCHS = Config.epoch
-    network = Deeplabv3Plus(backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
+    network = Deeplab.deeplabv3_plus(backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
     earlystop_callback = EarlyStopping(monitor='val_loss',
                                    patience=5,
                                    min_delta=0.001)

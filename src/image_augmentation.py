@@ -19,6 +19,7 @@ CROP_TARGET_DATA_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', '
 CROP_TRAIN_TARGET_DATA_DIR = os.path.join(CROP_TARGET_DATA_DIR, 'train')
 CROP_TEST_TARGET_DATA_DIR = os.path.join(CROP_TARGET_DATA_DIR, 'test')
 CROP_VALID_TARGET_DATA_DIR = os.path.join(CROP_TARGET_DATA_DIR, 'validation')
+
 TARGET_DATA_DIR = os.path.join(ROOT_DIR, 'aug')
 TRAIN_TARGET_DATA_DIR = os.path.join(TARGET_DATA_DIR, 'train')
 TEST_TARGET_DATA_DIR = os.path.join(TARGET_DATA_DIR, 'test')
@@ -191,7 +192,7 @@ def img_aug(img, det_mask, cls_mask, aug_type):
                 iaa.Flipud(1),
                 iaa.Affine(shear=(-16, 16)),
                 iaa.Affine(scale={'x': (0.8, 1.2), 'y': (0.8, 1.2)}),
-                iaa.PerspectiveTransform(scale=(0.01, 0.1))
+                #iaa.PerspectiveTransform(scale=(0.01, 0.1))
             ])
         ])
         det_mask, cls_mask = masks[0], masks[1]
@@ -340,7 +341,7 @@ if __name__ == '__main__':
     parser.add_argument("--crop", default=True, type=bool)
     args = parser.parse_args()
     ifcrop = args.crop
-    rand_num = 8
+    rand_num = 11
     channel_num = 2
     zoom_num = 2
     shear_num = 2
@@ -348,7 +349,7 @@ if __name__ == '__main__':
     #batch_aug(TRAIN_OLD_DATA_DIR, TRAIN_TARGET_DATA_DIR, rand_num=1)
     #         zoom_num=zoom_num,
     #        shear_num=shear_num, rotate_num = rotate_num)
-    batch_aug(TRAIN_OLD_DATA_DIR, TRAIN_TARGET_DATA_DIR, rand_num=rand_num, channel_num=channel_num,
+    batch_aug(TRAIN_OLD_DATA_DIR, TRAIN_TARGET_DATA_DIR, rand_num=rand_num,# channel_num=channel_num,
               zoom_num=zoom_num,
               shear_num=shear_num, rotate_num = rotate_num)
     #batch_aug(VALID_OLD_DATA_DIR, VALID_TARGET_DATA_DIR, rand_num=rand_num, channel_num=channel_num, zoom_num=zoom_num, shear_num=shear_num)
