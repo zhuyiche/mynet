@@ -473,7 +473,7 @@ def Deeplabv3Plus(weights='pascal_voc', input_tensor=None, input_shape=(512, 512
         last_layer_name = 'custom_logits_semantic'
 
     x = Conv2D(classes, (1, 1), padding='same', name=last_layer_name)(x)
-    x = UpSampling2D(output_size=(input_shape[0], input_shape[1]))(x)
+    x = UpSampling2D((input_shape[0], input_shape[1]))(x)
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
@@ -739,7 +739,7 @@ class Deeplab:
         if backbone == 'xception' or backbone == 'sip_xception':
             # Feature projection
             # x4 (x2) block
-            x = UpSampling2D(output_size=(int(np.ceil(input_shape[0] / 4)),
+            x = UpSampling2D((int(np.ceil(input_shape[0] / 4)),
                                                 int(np.ceil(input_shape[1] / 4))))(x)
             dec_skip1 = Conv2D(48, (1, 1), padding='same',
                                use_bias=False, name='feature_projection0')(skip1)
@@ -760,7 +760,7 @@ class Deeplab:
             last_layer_name = 'custom_logits_semantic'
 
         x = Conv2D(classes, (1, 1), padding='same', name=last_layer_name)(x)
-        x = UpSampling2D(output_size=(input_shape[0], input_shape[1]))(x)
+        x = UpSampling2D((input_shape[0], input_shape[1]))(x)
         x = Activation('softmax')(x)
 
         # Ensure that the model takes into account
