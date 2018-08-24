@@ -4,7 +4,7 @@ from encoder_decoder_object_det import data_prepare, tune_loss_weight, TimerCall
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, LearningRateScheduler
 from config import Config
 from keras.utils import np_utils
-from deeplabv3_plus import load_pretrain_weights, preprocess_input, Deeplabv3
+from deeplabv3_plus import load_pretrain_weights, preprocess_input, Deeplab
 from loss import deeplab_cls_loss
 import os
 import numpy as np
@@ -159,7 +159,7 @@ def fcn_tune_loss_weight():
 if __name__ == '__main__':
    # if Config.gpu_count == 1:
        # os.environ["CUDA_VISIBLE_DEVICES"] = Config.gpu1
-    network = Deeplabv3(backbone=Config.backbone)
+    network = Deeplab.Deeplabv3_plus(backbone=Config.backbone)
     earlystop_callback = EarlyStopping(monitor='val_loss',
                                    patience=5,
                                    min_delta=0.001)
