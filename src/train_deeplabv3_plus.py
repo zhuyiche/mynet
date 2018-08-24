@@ -173,7 +173,7 @@ if __name__ == '__main__':
                                    patience=5,
                                    min_delta=0.001)
     if Config.gpu_count != 1:
-        network = keras.utils.multi_gpu_model(network, gpus=Config.gpu_count)
+        multi_network = keras.utils.multi_gpu_model(network, gpus=Config.gpu_count)
     print('------------------------------------')
     print('This model is using {}'.format(Config.backbone))
     print()
@@ -194,15 +194,15 @@ if __name__ == '__main__':
     print(hyper)
     print()
     model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
-    network.summary()
+    multi_network.summary()
     if not os.path.exists(model_weights_saver):
         print('model start to compile')
-        network.compile(optimizer=optimizer, loss=['categorical_crossentropy'], metrics=['accuracy'])
+        multi_network.compile(optimizer=optimizer, loss=['categorical_crossentropy'], metrics=['accuracy'])
 
         print('{} gpu classification is training'.format(Config.gpu_count))
 
 
-        network.fit_generator(generator(data[0], data[1], batch_size=BATCH_SIZE),
+        multi_network.fit_generator(generator(data[0], data[1], batch_size=BATCH_SIZE),
                                         epochs=EPOCHS,
                                         steps_per_epoch=STEP_PER_EPOCH,
                                         validation_data=generator(data[2], data[3], batch_size=BATCH_SIZE),

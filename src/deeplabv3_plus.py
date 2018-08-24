@@ -520,7 +520,7 @@ class Deeplab:
         else:
             inputs = img_input
 
-        model = Model(inputs, x)#, name='deeplabv3+')
+        model = Model(inputs, x, name='deeplabv3+')
         """
         if weights == 'pascal_voc':
             if backbone == 'xception':
