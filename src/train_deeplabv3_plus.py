@@ -4,7 +4,7 @@ from encoder_decoder_object_det import data_prepare, tune_loss_weight, TimerCall
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, LearningRateScheduler
 from config import Config
 from keras.utils import np_utils
-from deeplabv3_plus import load_pretrain_weights, preprocess_input, Deeplab
+from deeplabv3_plus import load_pretrain_weights, preprocess_input, Deeplab, Deeplabv3Plus
 from loss import deeplab_cls_loss
 import os
 import numpy as np
@@ -168,12 +168,12 @@ def fcn_tune_loss_weight():
 if __name__ == '__main__':
    # if Config.gpu_count == 1:
        # os.environ["CUDA_VISIBLE_DEVICES"] = Config.gpu1
-    network = Deeplab.deeplabv3_plus(backbone=Config.backbone)
+    network = Deeplabv3Plus(backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
     earlystop_callback = EarlyStopping(monitor='val_loss',
                                    patience=5,
                                    min_delta=0.001)
     if Config.gpu_count != 1:
-        multi_network = keras.utils.multi_gpu_model(network, gpus=Config.gpu_count)
+        network = keras.utils.multi_gpu_model(network, gpus=Config.gpu_count)
     print('------------------------------------')
     print('This model is using {}'.format(Config.backbone))
     print()
@@ -194,15 +194,15 @@ if __name__ == '__main__':
     print(hyper)
     print()
     model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
-    multi_network.summary()
+    network.summary()
     if not os.path.exists(model_weights_saver):
         print('model start to compile')
-        multi_network.compile(optimizer=optimizer, loss=['categorical_crossentropy'], metrics=['accuracy'])
+        network.compile(optimizer=optimizer, loss=['categorical_crossentropy'], metrics=['accuracy'])
 
         print('{} gpu classification is training'.format(Config.gpu_count))
 
 
-        multi_network.fit_generator(generator(data[0], data[1], batch_size=BATCH_SIZE),
+        network.fit_generator(generator(data[0], data[1], batch_size=BATCH_SIZE),
                                         epochs=EPOCHS,
                                         steps_per_epoch=STEP_PER_EPOCH,
                                         validation_data=generator(data[2], data[3], batch_size=BATCH_SIZE),
