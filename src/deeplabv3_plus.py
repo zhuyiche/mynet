@@ -25,6 +25,7 @@ from keras.utils import conv_utils
 from keras.utils.data_utils import get_file
 import os
 from tqdm import tqdm
+import tensorflow as tf
 
 WEIGHTS_PATH_X = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.1/deeplabv3_xception_tf_dim_ordering_tf_kernels.h5"
 WEIGHTS_PATH_MOBILE = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.1/deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels.h5"
