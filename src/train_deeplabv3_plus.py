@@ -132,13 +132,13 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
         print()
 
     train_cls = np_utils.to_categorical(train_cls_masks, 5)
-    train_cls = reshape_mask(train_cls_masks, train_cls, 5)
+    #train_cls = reshape_mask(train_cls_masks, train_cls, 5)
 
     valid_cls = np_utils.to_categorical(valid_cls_masks, 5)
-    valid_cls = reshape_mask(valid_cls_masks, valid_cls, 5)
+    #valid_cls = reshape_mask(valid_cls_masks, valid_cls, 5)
 
     test_cls = np_utils.to_categorical(test_cls_masks, 5)
-    test_cls = reshape_mask(test_cls_masks, test_cls, 5)
+    #test_cls = reshape_mask(test_cls_masks, test_cls, 5)
 
     if print_input_shape:
         print('input shape print below: ')
