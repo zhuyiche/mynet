@@ -26,17 +26,21 @@ from keras.utils.data_utils import get_file
 import os
 from tqdm import tqdm
 import tensorflow as tf
+from keras.layers import Lambda
 
 WEIGHTS_PATH_X = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.1/deeplabv3_xception_tf_dim_ordering_tf_kernels.h5"
 WEIGHTS_PATH_MOBILE = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.1/deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels.h5"
 
+
+def UpSampling2DBilinear(size):
+    return Lambda(lambda x: tf.image.resize_bilinear(x, size, align_corners=True))
+"""
 class BilinearUpsampling(Layer):
-    """Just a simple bilinear upsampling layer. Works only with TF.
+    Just a simple bilinear upsampling layer. Works only with TF.
        Args:
            upsampling: tuple of 2 numbers > 0. The upsampling ratio for h and w
            output_size: used instead of upsampling arg if passed!
-    """
-
+  
     def __init__(self, upsampling=(2, 2), output_size=None, data_format=None, **kwargs):
 
         super(BilinearUpsampling, self).__init__(**kwargs)
@@ -83,7 +87,7 @@ class BilinearUpsampling(Layer):
         base_config = super(BilinearUpsampling, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
-
+"""
 def SepConv_BN(x, filters, prefix, stride=1, kernel_size=3, rate=1, depth_activation=False, epsilon=1e-3):
     """ SepConv with BN between depthwise & pointwise. Optionally add activation after BN
         Implements right "same" padding for even kernel sizes
