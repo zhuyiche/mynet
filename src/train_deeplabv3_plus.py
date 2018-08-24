@@ -120,9 +120,9 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
     def reshape_mask(origin, cate, num_class):
         return cate.reshape((origin.shape[0], origin.shape[1], origin.shape[2], num_class))
 
-    train_imgs, train_det_masks, train_cls_masks = load_dataset(data_path=DATA_DIR, type='train', det=False, cls=True)
-    valid_imgs, valid_det_masks, valid_cls_masks = load_dataset(data_path=DATA_DIR, type='validation', det=False, cls=True)
-    test_imgs, test_det_masks, test_cls_masks = load_dataset(data_path=DATA_DIR, type='test',det=False, cls=True)
+    train_imgs, train_det_masks, train_cls_masks = load_dataset(dataset=DATA_DIR, type='train', det=False, cls=True)
+    valid_imgs, valid_det_masks, valid_cls_masks = load_dataset(dataset=DATA_DIR, type='validation', det=False, cls=True)
+    test_imgs, test_det_masks, test_cls_masks = load_dataset(dataset=DATA_DIR, type='test',det=False, cls=True)
 
     if print_image_shape:
         print('Image shape print below: ')
