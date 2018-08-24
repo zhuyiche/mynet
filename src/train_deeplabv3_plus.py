@@ -20,7 +20,7 @@ ROOT_DIR = os.getcwd()
 if ROOT_DIR.endswith('src'):
     ROOT_DIR = os.path.dirname(ROOT_DIR)
 
-DATA_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det')
+DATA_DIR = os.path.join(ROOT_DIR, 'aug')
 CROP_DATA_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det')
 TENSORBOARD_DIR = os.path.join(ROOT_DIR, 'tensorboard_logs')
 CHECKPOINT_DIR = os.path.join(ROOT_DIR, 'checkpoint')
