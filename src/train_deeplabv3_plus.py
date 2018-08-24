@@ -27,6 +27,15 @@ CHECKPOINT_DIR = os.path.join(ROOT_DIR, 'checkpoint')
 WEIGHTS_DIR = os.path.join(ROOT_DIR, 'model_weights')
 
 
+def _image_normalization(image, preprocss_num):
+    """
+    preprocessing on image.
+    """
+    image = image - preprocss_num
+    image = image / preprocss_num
+    return image
+
+
 def load_dataset(dataset, type, reshape_size=None, det=True, cls=True, preprocss_num=128.):
     """
     Load dataset from files
@@ -159,7 +168,7 @@ def fcn_tune_loss_weight():
 if __name__ == '__main__':
    # if Config.gpu_count == 1:
        # os.environ["CUDA_VISIBLE_DEVICES"] = Config.gpu1
-    network = Deeplab.Deeplabv3_plus(backbone=Config.backbone)
+    network = Deeplab.deeplabv3_plus(backbone=Config.backbone)
     earlystop_callback = EarlyStopping(monitor='val_loss',
                                    patience=5,
                                    min_delta=0.001)

@@ -257,7 +257,7 @@ class Deeplab:
         self.classes = classes
         l2_weight = 0.001
 
-    def Deeplabv3_plus(weights='pascal_voc', input_tensor=None, input_shape=(256, 256, 3), classes=5,
+    def deeplabv3_plus(weights='pascal_voc', input_tensor=None, input_shape=(256, 256, 3), classes=5,
                   backbone='mobilenetv2', OS=8, alpha=1.):
         """ Instantiates the Deeplabv3+ architecture
         Optionally loads weights pre-trained
@@ -520,7 +520,7 @@ class Deeplab:
         else:
             inputs = img_input
 
-        model = Model(inputs, x, name='deeplabv3+')
+        model = Model(inputs, x)#, name='deeplabv3+')
         """
         if weights == 'pascal_voc':
             if backbone == 'xception':
@@ -551,7 +551,7 @@ def load_pretrain_weights():
 
     for backbone in ['mobilenetv2', 'xception']:
         print('Instantiating an empty Deeplabv3+ model...')
-        model = Deeplabv3(input_shape=(256, 256, 3),
+        model = Deeplab.deeplabv3_plus(input_shape=(256, 256, 3),
                           classes=5, backbone=backbone, weights=None)
 
         WEIGHTS_DIR = 'weights/' + backbone
