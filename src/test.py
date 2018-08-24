@@ -20,7 +20,7 @@ IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det',
 #IMG_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det', 'test')
 epsilon = 1e-6
 
-def non_max_suppression(img, overlap_thresh=0.3, max_boxes=1200, r=8, prob_thresh=0.85):  # net_4_w6_di2.pkl
+def non_max_suppression(img, overlap_thresh=0.3, max_boxes=1200, r=8, prob_thresh=0.6):  # net_4_w6_di2.pkl
     # over=0.2, max=1200,r=7,prob=0.85 --> P:0.837 R:0.894 F:0.865
     # over=0.3, max=1200,r=8,prob=0.85 --> P:0.824 R:0.920 F:0.869
     x1s = []
@@ -286,11 +286,15 @@ def eval_weights_testset(weightsdir):
         print('best f1 is {} with model {} at threshold {}'.format(weights_dict['best_f1'],
                                                                    weights_dict['best_f1_model'],
                                                                    weights_dict['best_f1_prob']))
+
+
 def test_11(model):
     p, r, f1, tp, gt, pred= eval_single_img(model, 'img11', print_img=True,
                                    print_single_result=False,
                                    prob_threshold=0.8)
     print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(p, r, f1, tp))
+
+
 if __name__ == '__main__':
     #model = Fcn_det().fcn36_deconv_backbone()
     #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
@@ -300,10 +304,10 @@ if __name__ == '__main__':
     start = time.time()
     #weight_path = 'focal_double_resnet50_loss:fd_det:0.1_fkg:2_bkg:2_lr:0.01_train.h5'
     imgdir = 'img' + str(2)
-    model = Fcn_det().fcn36_deconv_backbone()
+    model = Fcn_det().relufirst_fcn36_deconv_backbone()
     #eval_weights_testset(WEIGHT_DIR)
     for weight in os.listdir(WEIGHT_DIR):
-        if 'loss:fd_det:' + str(Config.det_weight) in weight:
+        if 'loss:fd_relufirst_det:' + str(Config.det_weight) in weight:
             print(weight)
             weightp = os.path.join(WEIGHT_DIR, weight)
             model.load_weights(weightp)
