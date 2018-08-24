@@ -15,7 +15,7 @@ from keras.layers import BatchNormalization
 from keras.layers import Conv2D
 from keras.layers import DepthwiseConv2D
 from keras.layers import ZeroPadding2D
-from keras.layers import AveragePooling2D
+from keras.layers import AveragePooling2D, UpSampling2D
 from keras.engine import Layer
 from keras.engine import InputSpec
 from keras.engine.topology import get_source_inputs
@@ -418,8 +418,8 @@ def Deeplabv3Plus(weights='pascal_voc', input_tensor=None, input_shape=(512, 512
                 use_bias=False, name='image_pooling')(b4)
     b4 = BatchNormalization(name='image_pooling_BN', epsilon=1e-5)(b4)
     b4 = Activation('relu')(b4)
-    b4 = BilinearUpsampling((int(np.ceil(input_shape[0] / OS)), int(np.ceil(input_shape[1] / OS))))(b4)
-
+    #b4 = BilinearUpsampling((int(np.ceil(input_shape[0] / OS)), int(np.ceil(input_shape[1] / OS))))(b4)
+    b4 = UpSampling2D((int(np.ceil(input_shape[0] / OS)), int(np.ceil(input_shape[1] / OS))))(b4)
     # simple 1x1
     b0 = Conv2D(256, (1, 1), padding='same', use_bias=False, name='aspp0')(x)
     b0 = BatchNormalization(name='aspp0_BN', epsilon=1e-5)(b0)
@@ -453,7 +453,7 @@ def Deeplabv3Plus(weights='pascal_voc', input_tensor=None, input_shape=(512, 512
     if backbone == 'xception':
         # Feature projection
         # x4 (x2) block
-        x = BilinearUpsampling(output_size=(int(np.ceil(input_shape[0] / 4)),
+        x = UpSampling2D(output_size=(int(np.ceil(input_shape[0] / 4)),
                                             int(np.ceil(input_shape[1] / 4))))(x)
         dec_skip1 = Conv2D(48, (1, 1), padding='same',
                            use_bias=False, name='feature_projection0')(skip1)
@@ -473,7 +473,7 @@ def Deeplabv3Plus(weights='pascal_voc', input_tensor=None, input_shape=(512, 512
         last_layer_name = 'custom_logits_semantic'
 
     x = Conv2D(classes, (1, 1), padding='same', name=last_layer_name)(x)
-    x = BilinearUpsampling(output_size=(input_shape[0], input_shape[1]))(x)
+    x = UpSampling2D(output_size=(input_shape[0], input_shape[1]))(x)
 
     # Ensure that the model takes into account
     # any potential predecessors of `input_tensor`.
@@ -704,7 +704,7 @@ class Deeplab:
                     use_bias=False, name='image_pooling')(b4)
         b4 = BatchNormalization(name='image_pooling_BN', epsilon=1e-5)(b4)
         b4 = Activation('relu')(b4)
-        b4 = BilinearUpsampling((int(np.ceil(input_shape[0] / OS)), int(np.ceil(input_shape[1] / OS))))(b4)
+        b4 = UpSampling2D((int(np.ceil(input_shape[0] / OS)), int(np.ceil(input_shape[1] / OS))))(b4)
 
         # simple 1x1
         b0 = Conv2D(256, (1, 1), padding='same', use_bias=False, name='aspp0')(x)
@@ -739,7 +739,7 @@ class Deeplab:
         if backbone == 'xception' or backbone == 'sip_xception':
             # Feature projection
             # x4 (x2) block
-            x = BilinearUpsampling(output_size=(int(np.ceil(input_shape[0] / 4)),
+            x = UpSampling2D(output_size=(int(np.ceil(input_shape[0] / 4)),
                                                 int(np.ceil(input_shape[1] / 4))))(x)
             dec_skip1 = Conv2D(48, (1, 1), padding='same',
                                use_bias=False, name='feature_projection0')(skip1)
@@ -760,7 +760,7 @@ class Deeplab:
             last_layer_name = 'custom_logits_semantic'
 
         x = Conv2D(classes, (1, 1), padding='same', name=last_layer_name)(x)
-        x = BilinearUpsampling(output_size=(input_shape[0], input_shape[1]))(x)
+        x = UpSampling2D(output_size=(input_shape[0], input_shape[1]))(x)
         x = Activation('softmax')(x)
 
         # Ensure that the model takes into account
