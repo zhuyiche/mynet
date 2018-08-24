@@ -120,9 +120,10 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
     def reshape_mask(origin, cate, num_class):
         return cate.reshape((origin.shape[0], origin.shape[1], origin.shape[2], num_class))
 
-    train_imgs, train_det_masks, train_cls_masks = load_dataset(dataset=DATA_DIR, type='train', det=False, cls=True)
-    valid_imgs, valid_det_masks, valid_cls_masks = load_dataset(dataset=DATA_DIR, type='validation', det=False, cls=True)
-    test_imgs, test_det_masks, test_cls_masks = load_dataset(dataset=DATA_DIR, type='test',det=False, cls=True)
+    train_imgs, train_det_masks, train_cls_masks = load_dataset(dataset=DATA_DIR, type='train', reshape_size=(256, 256))
+    valid_imgs, valid_det_masks, valid_cls_masks = load_dataset(dataset=DATA_DIR, type='validation',
+                                                                reshape_size=(256, 256))
+    test_imgs, test_det_masks, test_cls_masks = load_dataset(dataset=DATA_DIR, type='test', reshape_size=(256, 256))
 
     if print_image_shape:
         print('Image shape print below: ')
@@ -130,7 +131,8 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
         print('valid_imgs: {}, valid_cls_masks: {}'.format(valid_imgs.shape, valid_cls_masks.shape))
         print('test_imgs: {}, test_cls_masks: {}'.format(test_imgs.shape, test_cls_masks.shape))
         print()
-
+    train_cls_masks.reshape((train_cls_masks.shape[0], train_cls_masks.shape[1], train_cls_masks.shape[2], 1))
+    valid_cls_masks.reshape((valid_cls_masks.shape[0], train_cls_masks.shape[1], train_cls_masks.shape[2], 1))
     train_cls = np_utils.to_categorical(train_cls_masks, 5)
     #train_cls = reshape_mask(train_cls_masks, train_cls, 5)
 
