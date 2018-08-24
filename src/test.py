@@ -16,11 +16,11 @@ if ROOT_DIR.endswith('src'):
     ROOT_DIR = os.path.dirname(ROOT_DIR)
 
 WEIGHT_DIR = os.path.join(ROOT_DIR, 'model_weights')
-IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'train')
+IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'test')
 #IMG_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det', 'test')
 epsilon = 1e-6
 
-def non_max_suppression(img, overlap_thresh=0.3, max_boxes=1200, r=8, prob_thresh=0.85):  # net_4_w6_di2.pkl
+def non_max_suppression(img, overlap_thresh=0.3, max_boxes=1200, r=8, prob_thresh=0.6):  # net_4_w6_di2.pkl
     # over=0.2, max=1200,r=7,prob=0.85 --> P:0.837 R:0.894 F:0.865
     # over=0.3, max=1200,r=8,prob=0.85 --> P:0.824 R:0.920 F:0.869
     x1s = []
@@ -130,8 +130,9 @@ def get_metrics(gt, pred, r=6):
         precision = min(tp / (pred.shape[0] + epsilon),1)
         recall = min(tp / (gt.shape[0] + epsilon),1)
         f1_score = 2 * (precision * recall / (precision + recall + epsilon))
-
-        return precision, recall, f1_score, tp
+        gt_num = gt.shape[0]
+        pred_num = pred.shape[0]
+        return precision, recall, f1_score, tp, gt_num, pred_num
 
 
 
@@ -175,8 +176,8 @@ def eval_single_img(model, img_dir, print_img=True,
         plt.show()
     #print(output.shape)
 
-    p, r, f1, tp = score_single_img(output, img_dir=img_dir, prob_threshold=prob_threshold, print_single_result=print_single_result)
-    return p, r, f1, tp
+    p, r, f1, tp, gt, pred2 = score_single_img(output, img_dir=img_dir, prob_threshold=prob_threshold, print_single_result=print_single_result)
+    return p, r, f1, tp, gt, pred2
 
 
 def score_single_img(input, img_dir, prob_threshold=None, print_single_result=True):
@@ -205,20 +206,31 @@ def score_single_img(input, img_dir, prob_threshold=None, print_single_result=Tr
         # cv2.rectangle(outputbase,(x1, y1), (x2, y2),(255,0,0), 1)
         cv2.circle(outputbase, (cx, cy), 3, (255, 255, 0), -1)
         pred.append([cx, cy])
-    p, r, f1,tp = get_metrics(gt, pred)
-    return p, r, f1, tp
+    p, r, f1, tp, aaa, bbb = get_metrics(gt, pred)
+    return p, r, f1, tp, aaa, bbb
 
 
 def eval_testset(model, prob_threshold=None, print_img=False, print_single_result=True):
     total_p, total_r, total_f1, total_tp = 0, 0, 0, 0
+    tp_total_num, gt_total_num, pred_total_num = 0, 0, 0
     for img_dir in os.listdir(IMG_DIR):
-        p, r, f1, tp = eval_single_img(model, img_dir, print_img=print_img,
+        p, r, f1, tp, gt, pred = eval_single_img(model, img_dir, print_img=print_img,
                                        print_single_result=print_single_result,
                                        prob_threshold=prob_threshold)
+        print('{} p: {}, r: {}, f1: {}, tp: {}'.format(img_dir, p, r, f1, tp))
         total_p += p
         total_r += r
         total_f1 += f1
         total_tp += tp
+
+        tp_total_num += tp
+        gt_total_num += gt
+        pred_total_num += pred
+
+    precision = tp_total_num/(pred_total_num + epsilon)
+    recall = tp_total_num / (gt_total_num + epsilon)
+    f1_score = 2 * (precision * recall) / (precision + recall + epsilon)
+    print('Over points, the precision: {}, recall: {}, f1: {}'.format(precision, recall, f1_score))
     if prob_threshold is not None:
         print('The nms threshold is {}'.format(prob_threshold))
     print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(total_p/20,
@@ -274,22 +286,28 @@ def eval_weights_testset(weightsdir):
         print('best f1 is {} with model {} at threshold {}'.format(weights_dict['best_f1'],
                                                                    weights_dict['best_f1_model'],
                                                                    weights_dict['best_f1_prob']))
-def test_11():
-    p, r, f1, tp = eval_single_img(Fcn_det().fcn36_deconv_backbone(), 'img11', print_img=True,
+
+
+def test_11(model):
+    p, r, f1, tp, gt, pred= eval_single_img(model, 'img11', print_img=True,
                                    print_single_result=False,
                                    prob_threshold=0.8)
     print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(p, r, f1, tp))
+
+
 if __name__ == '__main__':
-    test_11()
+    #model = Fcn_det().fcn36_deconv_backbone()
+    #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
+    #test_11(model)
     import time
     #os.environ["CUDA_VISIBLE_DEVICES"] = str(Config.gpu1)
     start = time.time()
     #weight_path = 'focal_double_resnet50_loss:fd_det:0.1_fkg:2_bkg:2_lr:0.01_train.h5'
     imgdir = 'img' + str(2)
-    model = Fcn_det().fcn36_deconv_backbone()
+    model = Fcn_det().relufirst_fcn36_deconv_backbone()
     #eval_weights_testset(WEIGHT_DIR)
     for weight in os.listdir(WEIGHT_DIR):
-        if 'loss:fd_det:' + str(Config.det_weight) in weight:
+        if 'loss:fd_relufirst_det:' + str(Config.det_weight) in weight:
             print(weight)
             weightp = os.path.join(WEIGHT_DIR, weight)
             model.load_weights(weightp)
@@ -298,7 +316,7 @@ if __name__ == '__main__':
             #eval_single_img(model, imgdir)
             for prob in prob_threshhold:
                 print('The nms threshold is ', prob)
-                eval_testset(model, prob_threshold=prob, print_img=True, print_single_result=False)
+                eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
 
 
 

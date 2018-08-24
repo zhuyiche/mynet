@@ -118,8 +118,9 @@ def get_metrics(gt, pred, r=6):
         precision = min(tp / (pred.shape[0] + epsilon), 1)
         recall = min(tp / (gt.shape[0] + epsilon), 1)
         f1_score = 2 * (precision * recall / (precision + recall + epsilon))
-
-        return precision, recall, f1_score, tp
+        gt_num = gt.shape[0]
+        pred_num = pred.shape[0]
+        return precision, recall, f1_score, tp, gt_num, pred_num
 
 
 def mymetrics(model):

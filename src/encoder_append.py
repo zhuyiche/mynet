@@ -432,6 +432,7 @@ class Fcn_det:
                               name='stage7_1x1_conv', kernel_regularizer=l2(l2_weight))(x_stage7)
 
         stage_67 = Add(name='add_stage_6_7')([x_stage6_1x1, x_stage7_1x1])
+        stage_67 = stage_67
         stage_567 = Add(name='add_stage_5_6_7')([x_stage5_1x1, stage_67])
         stage_567_upsample = Conv2DTranspose(filters=128, kernel_size=(3, 3), strides=(2, 2),padding='same',
                                              name='stage_567_upsample',
@@ -449,6 +450,139 @@ class Fcn_det:
                                                         C4=stage_4567, C3=stage_34567)
         x_feature_concat = Conv2D(kernel_size=(1,1), filters=2, kernel_regularizer=l2(l2_weight),padding='same',
                                   name='all_feature_concat')(x_feature_concat)
+        x_output = Activation('softmax', name='Final_Softmax')(x_feature_concat)
+        detnet_model = Model(inputs=img_input,
+                             outputs=x_output)
+        return detnet_model
+
+    def relufirst_fcn36_deconv_backbone(self, l2_weight=0.001):
+        #######################################
+        # Extra branch for every pyramid feature
+        #######################################
+        def _feature_concat_deconv_branch(C7=None, C6=None, C5=None, C4=None, C3=None):
+            """
+
+            :param features: input feature is from every feature pyramid layer,
+                             should've been already connect with 1x1 convolution layer.
+            """
+
+            def _32to256(input, type):
+                x_deconv64 = Conv2DTranspose(kernel_size=(3, 3),
+                                              filters=256, strides=(2, 2), name=type + '_deconv_64_Conv',
+                                             padding='same',
+                                             kernel_regularizer=l2(l2_weight))(input)
+                x_deconv64 = BatchNormalization(name=type + '_deconv_64_BN')(x_deconv64)
+                x_deconv64 = Activation('relu', name=type + '_deconv_64_RELU')(x_deconv64)
+                x_deconv128 = Conv2DTranspose(kernel_size=(3, 3),
+                                              filters=256, strides=(2, 2), name=type + '_deconv_128_Conv',
+                                              padding='same',
+                                             kernel_regularizer=l2(l2_weight))(x_deconv64)
+                x_deconv128 = BatchNormalization(name=type + '_deconv_128_BN')(x_deconv128)
+                x_deconv128 = Activation('relu', name=type + '_deconv_128_RELU')(x_deconv128)
+                x_deconv256 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
+                                              filters=256, strides=(2, 2), name=type + '_deconv_256_Conv',
+                                             kernel_regularizer=l2(l2_weight))(x_deconv128)
+                x_deconv256 = BatchNormalization()(x_deconv256)
+                return x_deconv256
+
+            # in detnet setting, C6.shape == C5.shape == C4.shape, in fcn27 this is 1/4 of origin image
+            C7_deconv = _32to256(C7, 'C7')
+            C6_deconv = _32to256(C6, 'C6')
+            C5_deconv = _32to256(C5, 'C5')
+            C4_deconv_128 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
+                                            filters=128, strides=(2, 2), name='C4_deconv_128_Conv',
+                                             kernel_regularizer=l2(l2_weight))(C4)
+            C4_deconv_128 = BatchNormalization(name='C4_deconv_128_BN')(C4_deconv_128)
+            C4_deconv_128 = Activation('relu', name='C4_deconv_128_RELU')(C4_deconv_128)
+            C4_deconv_256 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
+                                            filters=128, strides=(2, 2), name='C4_deconv_256_Conv',
+                                             kernel_regularizer=l2(l2_weight))(C4_deconv_128)
+            C4_deconv_256 = BatchNormalization()(C4_deconv_256)
+
+            C3_deconv_256 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
+                                            filters=64, strides=(2, 2), name='C3_deconv_256_Conv',
+                                             kernel_regularizer=l2(l2_weight))(C3)
+            C3_deconv_256 = BatchNormalization()(C3_deconv_256)
+            C23456_concat = Concatenate()([C7_deconv, C6_deconv, C5_deconv, C4_deconv_256, C3_deconv_256])
+
+            return C23456_concat
+
+        # tf.reset_default_graph()
+        img_input = Input(self.input_shape)
+        #########
+        # Adapted first stage
+        #########
+        x_stage1 = self.first_layer(inputs=img_input, l2_weight=l2_weight)
+        x_stage2, x_stage3, x_stage4, x_stage5 = fcn_36(x_stage1, l2_weight=l2_weight)
+        # stage3 is 1/2 size
+        #########
+        # following layer proposed by DetNet
+        #########
+        x_stage6_B = dilated_with_projection(x_stage5, stage=6, l2_weight=l2_weight)
+        x_stage6_A1 = dilated_bottleneck(x_stage6_B, stage=6, block=1, l2_weight=l2_weight)
+        x_stage6 = dilated_bottleneck(x_stage6_A1, stage=6, block=2, l2_weight=l2_weight)
+        x_stage7_B = dilated_with_projection(x_stage6, stage=7, l2_weight=l2_weight)
+        x_stage7_A1 = dilated_bottleneck(x_stage7_B, stage=7, block=1, l2_weight=l2_weight)
+        x_stage7 = dilated_bottleneck(x_stage7_A1, stage=7, block=2, l2_weight=l2_weight)
+
+        ########
+        # 1x1 convolutnion part
+        ########
+        #x_stage2_1x1 = Conv2D(filters=32, kernel_size=(1, 1), padding='same', name='stage2_1x1_conv', kernel_regularizer=l2(l2_weight))(x_stage2)
+        x_stage3_1x1 = Conv2D(filters=64, kernel_size=(1, 1), padding='same',
+                              name='stage3_1x1_conv',
+                              kernel_regularizer=l2(l2_weight))(x_stage3)
+        x_stage4_1x1 = Conv2D(filters=128, kernel_size=(1, 1), padding='same',
+                              name='stage4_1x1_conv',
+                              kernel_regularizer=l2(l2_weight))(x_stage4)
+        # stage5 is 1/8 size, same as 6 and 7
+        x_stage5_1x1 = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
+                              name='stage5_1x1_conv', kernel_regularizer=l2(l2_weight))(x_stage5)
+        x_stage6_1x1 = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
+                              name='stage6_1x1_conv', kernel_regularizer=l2(l2_weight))(x_stage6)
+        x_stage7_1x1 = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
+                              name='stage7_1x1_conv', kernel_regularizer=l2(l2_weight))(x_stage7)
+        x_stage7_1x1 = BatchNormalization(name='stage7_1x1_BN')(x_stage7_1x1)
+        #x_stage7_1x1 = Activation('relu')(x_stage7_1x1)
+        x_stage6_1x1 = BatchNormalization(name='stage6_1x1_BN')(x_stage6_1x1)
+        #x_stage6_1x1 = Activation('relu')(x_stage6_1x1)
+        x_stage5_1x1 = BatchNormalization(name='stage5_1x1_BN')(x_stage5_1x1)
+        #x_stage5_1x1 = Activation('relu')(x_stage5_1x1)
+        x_stage4_1x1 = BatchNormalization(name='stage4_1x1_BN')(x_stage4_1x1)
+        #x_stage4_1x1 = Activation('relu')(x_stage4_1x1)
+        x_stage3_1x1 = BatchNormalization(name='stage3_1x1_BN')(x_stage3_1x1)
+        #x_stage3_1x1 = Activation('relu')(x_stage3_1x1)
+
+
+        stage_67 = Add(name='add_stage_6_7')([x_stage6_1x1, x_stage7_1x1])
+        #stage_67 = Activation('relu', name='stage67_relu')(stage_67)
+        stage_567 = Add(name='add_stage_5_6_7')([x_stage5_1x1, stage_67])
+        stage_567 = Activation('relu', name='stage67_relu')(stage_67)
+        stage_567_upsample = Conv2DTranspose(filters=128, kernel_size=(3, 3), strides=(2, 2),padding='same',
+                                             name='stage_567_upsample',
+                                             kernel_regularizer=l2(l2_weight))(stage_567)
+        stage_567_upsample = BatchNormalization(name='stage_567_upsample_BN')(stage_567_upsample)
+        #stage_567_upsample = Activation('relu')(stage_567_upsample)
+
+
+        stage_4567 = Add(name='add_stage_4_567')([stage_567_upsample, x_stage4_1x1])
+        stage_4567 = Activation('relu')(stage_4567)
+        stage_4567_upsample = Conv2DTranspose(filters=64, kernel_size=(3, 3), strides=(2, 2),
+                                              padding='same',
+                                              kernel_regularizer=keras.regularizers.l2(l2_weight),
+                                              name='stage_4567_upsample')(stage_4567)
+        stage_4567_upsample = BatchNormalization()(stage_4567_upsample)
+        #stage_4567_upsample = Activation('relu')(stage_4567_upsample)
+        stage_34567 = Add(name='add_stage_3_4567')([stage_4567_upsample, x_stage3_1x1])  # filters = 64
+        stage_34567 = Activation('relu')(stage_34567)
+        #stage_34567_upsample = Conv2DTranspose(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_regularizer=l2(l2_weight), name='stage_34567_upsample')(stage_34567)
+        #stage_234567 = Add(name='add_stage_2_34567')([stage_34567_upsample, x_stage2_1x1])
+
+        x_feature_concat= _feature_concat_deconv_branch(C7=x_stage7_1x1, C6=stage_67, C5=stage_567,
+                                                        C4=stage_4567, C3=stage_34567)
+        x_feature_concat = Conv2D(kernel_size=(1,1), filters=2, kernel_regularizer=l2(l2_weight),padding='same',
+                                  name='all_feature_concat')(x_feature_concat)
+        x_feature_concat = BatchNormalization()(x_feature_concat)
         x_output = Activation('softmax', name='Final_Softmax')(x_feature_concat)
         detnet_model = Model(inputs=img_input,
                              outputs=x_output)
@@ -700,23 +834,30 @@ class Score(Callback):
 if __name__ == '__main__':
    # if Config.gpu_count == 1:
        # os.environ["CUDA_VISIBLE_DEVICES"] = Config.gpu1
-    fcn_detnet = Fcn_det().fcn36_deconv_backbone()
+    fcn_detnet = Fcn_det().relufirst_fcn36_deconv_backbone()
     earlystop_callback = EarlyStopping(monitor='val_loss',
                                    patience=5,
                                    min_delta=0.001)
+    hyper_para = fcn_tune_loss_weight()
+    BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
+    EPOCHS = Config.epoch
+    data = data_prepare(print_input_shape=True, print_image_shape=True)
+    optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
+    STEP_PER_EPOCH = int(len(data[0]) / BATCH_SIZE)
+    print('batch size is :', BATCH_SIZE)
     if Config.gpu_count != 1:
         multi_gpu_fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
+        """
         print('------------------------------------')
         print('This model is using {}'.format(Config.backbone))
         print()
-        hyper_para = fcn_tune_loss_weight()
-        BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
-        print('batch size is :', BATCH_SIZE)
-        EPOCHS = Config.epoch
+        #hyper_para = fcn_tune_loss_weight()
+        #BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
+        
+        
 
         data = data_prepare(print_input_shape=True, print_image_shape=True)
-        optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
-        STEP_PER_EPOCH = int(len(data[0])/BATCH_SIZE)
+        
 
         hyper = '{}_loss:{}_det:{}_fkg:{}_bkg:{}_lr:0.01'.format('multi_fcn36', 'fd',
                                                                  Config.det_weight,
@@ -763,11 +904,10 @@ if __name__ == '__main__':
                 json_file.write(model_json)
             fcn_detnet.save_weights(model_weights_saver)
             print(hyper + 'has been saved')
-
-
+"""
         for k, bkg_weight in enumerate(hyper_para[3]):
             for j, fkg_weight in enumerate(hyper_para[1]):
-                hyper = '{}_loss:{}_det:{}_fkg:{}_bkg:{}_lr:0.01'.format('multi_fcn36', 'fd',
+                hyper = '{}_loss:{}_relufirst_det:{}_fkg:{}_bkg:{}_lr:0.01'.format('multi_fcn36', 'fd',
                                                                          Config.det_weight,
                                                                          fkg_weight,
                                                                          bkg_weight)  # _l2:{}_bkg:{}'.format()
