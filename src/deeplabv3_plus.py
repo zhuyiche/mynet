@@ -453,7 +453,7 @@ def Deeplabv3Plus(weights='pascal_voc', input_tensor=None, input_shape=(512, 512
     if backbone == 'xception':
         # Feature projection
         # x4 (x2) block
-        x = UpSampling2D(output_size=(int(np.ceil(input_shape[0] / 4)),
+        x = UpSampling2D((int(np.ceil(input_shape[0] / 4)),
                                             int(np.ceil(input_shape[1] / 4))))(x)
         dec_skip1 = Conv2D(48, (1, 1), padding='same',
                            use_bias=False, name='feature_projection0')(skip1)
