@@ -32,7 +32,7 @@ WEIGHTS_PATH_X = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/down
 WEIGHTS_PATH_MOBILE = "https://github.com/bonlime/keras-deeplab-v3-plus/releases/download/1.1/deeplabv3_mobilenetv2_tf_dim_ordering_tf_kernels.h5"
 
 
-def UpSampling2DBilinear(size):
+def BilinearUpsampling(size):
     return Lambda(lambda x: tf.image.resize_bilinear(x, size, align_corners=True))
 """
 class BilinearUpsampling(Layer):
