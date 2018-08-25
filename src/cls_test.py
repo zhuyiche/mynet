@@ -1,5 +1,4 @@
 from encoder_decoder_object_det import Detnet
-from deeplabv3_plus import Deeplabv3
 import scipy.misc as misc
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,20 +8,20 @@ from config import Config
 import scipy.io as sio
 import cv2
 from encoder_append import *
+from eval import mymetrics
+from deeplabv3_plus import Deeplab
 
-weight_path = 'Deeplabv3_sip_xception_loss:categorical_crossentropy_lr:0.01_train.h5'
-checkpoint = 'Deeplabv3_loss:categorical_crossentropy_lr:0.01_cp.h5'
+weight_path = 'multi_fcn36_loss:fd_det:0.13_fkg:0.5_bkg:0.5_lr:0.01_train.h5'
 ROOT_DIR = os.getcwd()
 if ROOT_DIR.endswith('src'):
     ROOT_DIR = os.path.dirname(ROOT_DIR)
 
 WEIGHT_DIR = os.path.join(ROOT_DIR, 'model_weights')
-CHECKPOINT_DIR = os.path.join(ROOT_DIR, 'checkpoint')
 IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'test')
 #IMG_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det', 'test')
 epsilon = 1e-6
 
-def non_max_suppression(img, overlap_thresh=0.3, max_boxes=1200, r=8, prob_thresh=0.85):  # net_4_w6_di2.pkl
+def non_max_suppression(img, overlap_thresh=0.3, max_boxes=1200, r=8, prob_thresh=0.6):  # net_4_w6_di2.pkl
     # over=0.2, max=1200,r=7,prob=0.85 --> P:0.837 R:0.894 F:0.865
     # over=0.3, max=1200,r=8,prob=0.85 --> P:0.824 R:0.920 F:0.869
     x1s = []
@@ -132,8 +131,9 @@ def get_metrics(gt, pred, r=6):
         precision = min(tp / (pred.shape[0] + epsilon),1)
         recall = min(tp / (gt.shape[0] + epsilon),1)
         f1_score = 2 * (precision * recall / (precision + recall + epsilon))
-
-        return precision, recall, f1_score, tp
+        gt_num = gt.shape[0]
+        pred_num = pred.shape[0]
+        return precision, recall, f1_score, tp, gt_num, pred_num
 
 
 
@@ -141,55 +141,77 @@ def eval_single_img(model, img_dir, print_img=True,
                     prob_threshold=None, print_single_result=True):
     image_path = os.path.join(IMG_DIR, img_dir, img_dir+ '.bmp')
     img = misc.imread(image_path)
-    img = misc.imresize(img, (512, 512))#, interp='nearest')
-    img = img / 255.
-    img -= np.mean(img, keepdims=True)
-    img /= (np.std(img, keepdims=True) + 1e-7)
+    img = misc.imresize(img, (256, 256))#, interp='nearest')
+    img = img - 128.0
+    img = img / 128.0
+    img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
+    output = model.predict(img)[0]
+    epi_output = output[:, :, 1]
+    fib_output = output[:, :, 2]
+    inf_output = output[:, :, 3]
+    other_output = output[:, :, 4]
 
-    cropped_img1 = img[0: 256, 0: 256, :]  # 1, 3
-    cropped_img2 = img[256: 512, 0: 256, :]  # 2, 4
-    cropped_img3 = img[0: 256, 256: 512, :]
-    cropped_img4 = img[256: 512, 256: 512, :]
-    #print('crop shape: ', cropped_img1.shape)
-    #plt.imshow(cropped_img1)
-    #plt.colorbar()
-    #plt.show()
     def _predic_crop_image(img, print_img=print_img):
         img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
         output = model.predict(img)[0]
-        output = np.argmax(output,axis=-1)
-        print(output.shape)
-        #output = output[:, :, 2]
+        output = np.argmax(output)
         return output
-
-    crop_output1 = _predic_crop_image(cropped_img1)
-    crop_output2 = _predic_crop_image(cropped_img2)
-    crop_output3 = _predic_crop_image(cropped_img3)
-    crop_output4 = _predic_crop_image(cropped_img4)
-
-    output_up = np.concatenate((crop_output1, crop_output3), axis=1)
-    output_down = np.concatenate((crop_output2, crop_output4), axis=1)
-    output = np.concatenate((output_up, output_down), axis=0)
+    argma = np.argmax(output)
+    print(argma.shape)
     if print_img:
-        plt.imshow(output)
-        plt.title(weight_path + '_' + img_dir)
+        plt.imshow(np.argmax(output))
+        plt.title(weight_path)
         plt.colorbar()
         plt.show()
     #print(output.shape)
-    p, r, f1, tp = score_single_img(output, img_dir=img_dir, prob_threshold=prob_threshold, print_single_result=print_single_result)
-    return p, r, f1, tp
+
+    epi_p, epi_r, epi_f1, epi_tp, epi_gt, epi_prednum = cls_score_single_img(epi_output, img_dir=img_dir, type='epi',
+                                                                             prob_threshold=prob_threshold,
+                                                                             print_single_result=print_single_result)
+    fib_p, fib_r, fib_f1, fib_tp, fib_gt, fib_prednum = cls_score_single_img(fib_output, img_dir=img_dir,
+                                                                             prob_threshold=prob_threshold, type='fib',
+                                                                             print_single_result=print_single_result)
+    inf_p, inf_r, inf_f1, inf_tp, inf_gt, inf_prednum = cls_score_single_img(inf_output, img_dir=img_dir,
+                                                                             prob_threshold=prob_threshold, type='inf',
+                                                                             print_single_result=print_single_result)
+    other_p, other_r, other_f1, other_tp, other_gt, other_prednum = cls_score_single_img(other_output, img_dir=img_dir,
+                                                                             prob_threshold=prob_threshold, type='other',
+                                                                             print_single_result=print_single_result)
+    total_gt = epi_gt + fib_gt + inf_gt + other_gt
+    total_tp = epi_tp + fib_tp + inf_tp + inf_tp
+    total_prednum = epi_prednum + fib_prednum + inf_prednum + inf_prednum
+    avg_p = (epi_p + fib_p + inf_p + other_p)/4
+    avg_r = (epi_r + fib_r + inf_r + other_r)/4
+    avg_f1 = (epi_f1 + fib_f1 + inf_f1 + other_f1)/4
+    return avg_p, avg_r, avg_f1, total_tp, total_gt, total_prednum
 
 
-def score_single_img(input, img_dir, prob_threshold=None, print_single_result=True):
+def cls_score_single_img(input, img_dir, type, prob_threshold=None, print_single_result=True):
     input = misc.imresize(input, (500, 500))
     input = input / 255.
     boxes = non_max_suppression(input, prob_thresh=prob_threshold)
 
     num_of_nuclei = boxes.shape[0]
 
-    mat_path = os.path.join(IMG_DIR, img_dir, img_dir + '_detection.mat')
-    #print(mat_path)
-    gt = sio.loadmat(mat_path)['detection']
+    epi_path = os.path.join(IMG_DIR, img_dir, img_dir + '_epithelial.mat')
+    fib_path = os.path.join(IMG_DIR, img_dir, img_dir + '_fibroblast.mat')
+    inf_path = os.path.join(IMG_DIR, img_dir, img_dir + '_inflammatory.mat')
+    other_path = os.path.join(IMG_DIR, img_dir, img_dir + '_others.mat')
+
+    epi_gt = sio.loadmat(epi_path)['detection']
+    fib_gt = sio.loadmat(fib_path)['detection']
+    inf_gt = sio.loadmat(inf_path)['detection']
+    other_gt = sio.loadmat(other_path)['detection']
+
+    if type == 'epi':
+        gt = epi_gt
+    elif type == 'fib':
+        gt = fib_gt
+    elif type == 'inf':
+        gt = inf_gt
+    elif type == 'other':
+        gt = other_gt
+
     outputbase = cv2.imread(os.path.join(IMG_DIR, img_dir, img_dir + '.bmp'))
     if print_single_result:
         print('----------------------------------')
@@ -206,20 +228,31 @@ def score_single_img(input, img_dir, prob_threshold=None, print_single_result=Tr
         # cv2.rectangle(outputbase,(x1, y1), (x2, y2),(255,0,0), 1)
         cv2.circle(outputbase, (cx, cy), 3, (255, 255, 0), -1)
         pred.append([cx, cy])
-    p, r, f1,tp = get_metrics(gt, pred)
-    return p, r, f1, tp
+    p, r, f1, tp, aaa, bbb = get_metrics(gt, pred)
+    return p, r, f1, tp, aaa, bbb
 
 
 def eval_testset(model, prob_threshold=None, print_img=False, print_single_result=True):
     total_p, total_r, total_f1, total_tp = 0, 0, 0, 0
+    tp_total_num, gt_total_num, pred_total_num = 0, 0, 0
     for img_dir in os.listdir(IMG_DIR):
-        p, r, f1, tp = eval_single_img(model, img_dir, print_img=print_img,
+        p, r, f1, tp, gt, pred = eval_single_img(model, img_dir, print_img=print_img,
                                        print_single_result=print_single_result,
                                        prob_threshold=prob_threshold)
+        print('{} p: {}, r: {}, f1: {}, tp: {}'.format(img_dir, p, r, f1, tp))
         total_p += p
         total_r += r
         total_f1 += f1
         total_tp += tp
+
+        tp_total_num += tp
+        gt_total_num += gt
+        pred_total_num += pred
+
+    precision = tp_total_num/(pred_total_num + epsilon)
+    recall = tp_total_num / (gt_total_num + epsilon)
+    f1_score = 2 * (precision * recall) / (precision + recall + epsilon)
+    print('Over points, the precision: {}, recall: {}, f1: {}'.format(precision, recall, f1_score))
     if prob_threshold is not None:
         print('The nms threshold is {}'.format(prob_threshold))
     print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(total_p/20,
@@ -248,6 +281,8 @@ def eval_weights_testset(weightsdir):
             print('current model is {} at threshold {}'.format(weight_dir, prob))
             avg_p, avg_r, avg_f1 = eval_testset(model, prob_threshold=prob, print_img=False,
                                                 print_single_result=False)
+            if np.round(avg_r) < 0.8:
+                break
             if weights_dict['best_p'] == 0:
                 weights_dict['best_p'], weights_dict['best_r'], weights_dict['best_f1'] = avg_p, avg_r, avg_f1
             else:
@@ -274,24 +309,36 @@ def eval_weights_testset(weightsdir):
                                                                    weights_dict['best_f1_model'],
                                                                    weights_dict['best_f1_prob']))
 
+
+def test_11(model):
+    p, r, f1, tp, gt, pred= eval_single_img(model, 'img11', print_img=True,
+                                   print_single_result=False,
+                                   prob_threshold=0.8)
+    print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(p, r, f1, tp))
+
+
 if __name__ == '__main__':
+    #model = Fcn_det().fcn36_deconv_backbone()
+    #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
+    #test_11(model)
     import time
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(Config.gpu1)
-    #eval_weights_testset(WEIGHT_DIR)
+    #os.environ["CUDA_VISIBLE_DEVICES"] = str(Config.gpu1)
     start = time.time()
     #weight_path = 'focal_double_resnet50_loss:fd_det:0.1_fkg:2_bkg:2_lr:0.01_train.h5'
     imgdir = 'img' + str(2)
-    model = Deeplabv3(backbone='sip_xception')
-    print(weight_path)
-    checkpointp = os.path.join(CHECKPOINT_DIR, checkpoint)
-    weightp = os.path.join(WEIGHT_DIR, weight_path)
-    model.load_weights(weightp)
-    #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
-    prob_threshhold = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    #eval_single_img(model, imgdir)
-    for prob in prob_threshhold:
-        print('The nms threshold is ', prob)
-        eval_testset(model, prob_threshold=prob, print_img=True, print_single_result=True)
+    model = Deeplab.deeplabv3_plus(weights=None, backbone='xception', input_shape=(256, 256, 3), classes=5)
+    #eval_weights_testset(WEIGHT_DIR)
+    for weight in os.listdir(WEIGHT_DIR):
+        if 'Deeplab' in weight:
+            print(weight)
+            weightp = os.path.join(WEIGHT_DIR, weight)
+            model.load_weights(weightp)
+        #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
+            prob_threshhold = [0.3, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
+            #eval_single_img(model, imgdir)
+            for prob in prob_threshhold:
+                print('The nms threshold is ', prob)
+                eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
 
 
 

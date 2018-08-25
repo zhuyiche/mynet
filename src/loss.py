@@ -1,19 +1,71 @@
 import keras.backend as K
 import tensorflow as tf
 import numpy as np
+import keras
 epsilon = 1e-7
 cls_threshold = 0.8
 
 
-def deeplab_cls_loss(weights):
+def deeplab_cls_cross_loss2(weights):
+    #print(weights.shape)
+    #weights = tf.convert_to_tensor(weights, np.float32)#K.variable(weights)
     def _cls_loss(y_true, y_pred):
-        y_pred = tf.clip_by_value(y_pred, epsilon, 1-epsilon)
         indicator = K.greater_equal(y_pred, cls_threshold)
         indicator = K.cast(indicator, tf.float32)
-        result = -K.mean(weights * y_true * K.log(y_pred))
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1-epsilon)
+        #print(y_pred.shape)
+        #print(y_true)
+        #y_pred = K.cast(y_pred, tf.float32)
+        #y_true = K.cast(y_true, tf.float32)
+        #result_b = weights[0] * (1-y_true_1-y_true_2-y_true_3-y_true_4)* K.log(1-y_pred_1-y_pred_2-y_pred_3-y_pred_4)
+
+        result = -K.mean(y_true * indicator * y_pred * weights)
         return result
     return _cls_loss
 
+
+def deeplab_cls_normal_loss2():
+    def _cls_loss(y_true, y_pred):
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1-epsilon)
+        y_pred = K.cast(y_pred, tf.float32)
+        y_true = K.cast(y_true, tf.float32)
+        result = -K.mean(y_true * y_pred)
+        return result
+    return _cls_loss
+
+def deeplab_cls_cross_loss(weight):
+    _weights = K.variable(value=weight)
+    weights = keras.backend.placeholder(shape=(1, 5))
+    tf_session = K.get_session()
+    K.shape(weights).eval(session=tf_session)
+    print(weights.shape)
+    print(type(weights))
+    def _cls_loss(y_true, y_pred):
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1-epsilon)
+        print(y_pred.shape)
+        print(y_true)
+        y_pred_b = y_pred[:, :, :, 0]
+        y_pred_1 = y_pred[:, :, :, 1]
+        y_pred_2 = y_pred[:, :, :, 2]
+        y_pred_3 = y_pred[:, :, :, 3]
+        y_pred_4 = y_pred[:, :, :, 4]
+
+        y_true_b = y_pred[:, :, :, 0]
+        y_true_1 = y_true[:, :, :, 1]
+        y_true_2 = y_true[:, :, :, 2]
+        y_true_3 = y_true[:, :, :, 3]
+        y_true_4 = y_true[:, :, :, 4]
+
+        result_b = weights[:,0] * y_true_b * K.log(y_pred_b)
+        result_1 = weights[:,1] * y_true_1 * K.log(y_pred_1)
+        result_2 = weights[:,2] * y_true_2 * K.log(y_pred_2)
+        result_3 = weights[:,3] * y_true_3 * K.log(y_pred_3)
+        result_4 = weights[:,4] * y_true_4 * K.log(y_pred_4)
+        #result_b = weights[0] * (1-y_true_1-y_true_2-y_true_3-y_true_4)* K.log(1-y_pred_1-y_pred_2-y_pred_3-y_pred_4)
+
+        result = -K.mean(result_b + result_1 + result_2 + result_3 + result_4)
+        return result
+    return _cls_loss
 
 
 def detection_double_focal_loss_K(weight, fkg_focal_smoother, bkg_focal_smoother):

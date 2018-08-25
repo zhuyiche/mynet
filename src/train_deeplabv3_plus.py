@@ -4,8 +4,8 @@ from encoder_decoder_object_det import data_prepare, tune_loss_weight, TimerCall
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, LearningRateScheduler
 from config import Config
 from keras.utils import np_utils
-from deeplabv3_plus import load_pretrain_weights, preprocess_input, Deeplab, Deeplabv3Plus
-from loss import deeplab_cls_loss
+from deeplabv3_plus import load_pretrain_weights, preprocess_input, Deeplab#, Deeplabv3Plus
+from loss import deeplab_cls_cross_loss, deeplab_cls_cross_loss2, deeplab_cls_normal_loss2
 import os
 import numpy as np
 from imgaug import augmenters as iaa
@@ -73,7 +73,6 @@ def load_dataset(dataset, type, reshape_size=None, det=True, cls=True, preprocss
                 cls_mask = cls_mask.reshape(cls_mask.shape[0], cls_mask.shape[1], 1)
                 cls_masks.append(cls_mask)
 
-    print(len(imgs), len(det_masks), len(cls_masks))
     #imgs = _torch_image_transpose(imgs)
     #det_masks = _torch_image_transpose(det_masks)
     #cls_masks = _torch_image_transpose(cls_masks)
@@ -155,7 +154,7 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
     return [train_imgs, train_cls, valid_imgs, valid_cls,  test_imgs, test_cls]
 
 
-def fcn_tune_loss_weight():
+def cls_fcn_tune_loss_weight():
     """
     use this function to fine tune weights later.
     :return:
@@ -164,11 +163,14 @@ def fcn_tune_loss_weight():
     det_weight = [np.array([0.2, 0.8]),np.array([0.1, 0.9]), np.array([0.15, 0.85])]
     l2_weight = 0.001
 
-    fkg_smooth_factor = [0.5, 0.7, 0.9, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]
-    bkg_smooth_factor = [0.5, 0.7, 0.9, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]
+    smooth_factor1 = [0.8, 0.9, 1.0]
+    smooth_factor2 = [0.8, 0.9, 1.0, 1.1]
+    smooth_factor3 = [0.5, 0.6, 0.7, 0.8]
+    smooth_factor4 = [1.7, 1.8, 1.9, 2.0]
+    bkg_smooth_factor = [0.5, 0.7]
 
     ind_factor = [np.array([0.2, 0.8]),np.array([0.1, 0.9]), np.array([0.15, 0.85])]
-    return [det_weight, fkg_smooth_factor, l2_weight, bkg_smooth_factor, ind_factor]
+    return [bkg_smooth_factor, smooth_factor1, smooth_factor2, smooth_factor3, smooth_factor4]
 
 
 if __name__ == '__main__':
@@ -177,11 +179,11 @@ if __name__ == '__main__':
     print('------------------------------------')
     print('This model is using {}'.format(Config.backbone))
     print()
-    hyper_para = fcn_tune_loss_weight()
-    BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
+    hyper_para = cls_fcn_tune_loss_weight()
+    BATCH_SIZE = 3 * Config.gpu_count
     print('batch size is :', BATCH_SIZE)
     EPOCHS = Config.epoch
-    network = Deeplab.deeplabv3_plus(backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
+    network = Deeplab.deeplabv3_plus(weights= None, backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
     earlystop_callback = EarlyStopping(monitor='val_loss',
                                    patience=5,
                                    min_delta=0.001)
@@ -193,20 +195,20 @@ if __name__ == '__main__':
     STEP_PER_EPOCH = int(len(data[0])/BATCH_SIZE)
 
     #for k, bkg_weight in enumerate(hyper_para[3]):
-        #for j, fkg_weight in enumerate(hyper_para[1]):
-    hyper = '{}_{}_loss:{}_lr:0.01'.format('Deeplabv3', Config.backbone, 'categorical_crossentropy')  # _l2:{}_bkg:{}'.format()
+        #for j, fkg_weight in enumerate(hyper_para[1]):  # _l2:{}_bkg:{}'.format()
+    hyper = '{}_{}_loss:{}_lr:0.01'.format('Deeplabv3', Config.backbone, 'deeplab_loss')
     tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
     timer = TimerCallback()
     print(hyper)
     print()
     model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
-    network.summary()
+    #network.summary()
     if not os.path.exists(model_weights_saver):
         print('model start to compile')
-        network.compile(optimizer=optimizer, loss=['categorical_crossentropy'], metrics=['accuracy'])
+        deeplab_loss = deeplab_cls_cross_loss2(np.array([0.5, 0.91, 1.01, 0.68, 1.9]))
+        network.compile(optimizer=optimizer, loss=deeplab_loss, metrics=['accuracy'])
 
         print('{} gpu classification is training'.format(Config.gpu_count))
-
 
         network.fit_generator(generator(data[0], data[1], batch_size=BATCH_SIZE),
                                         epochs=EPOCHS,
