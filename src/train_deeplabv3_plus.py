@@ -1,5 +1,5 @@
 from util import load_data, set_gpu, set_num_step_and_aug, lr_scheduler, aug_on_fly, heavy_aug_on_fly
-from keras.optimizers import SGD
+from keras.optimizers import SGD, Adagrad
 from encoder_decoder_object_det import data_prepare, tune_loss_weight, TimerCallback
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, LearningRateScheduler
 from config import Config
@@ -191,34 +191,41 @@ if __name__ == '__main__':
         network = keras.utils.multi_gpu_model(network, gpus=Config.gpu_count)
 
     data = data_prepare(print_input_shape=True, print_image_shape=True)
-    optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
+    #optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
+    optimizer = Adagrad(lr=0.01)
     STEP_PER_EPOCH = int(len(data[0])/BATCH_SIZE)
 
     #for k, bkg_weight in enumerate(hyper_para[3]):
         #for j, fkg_weight in enumerate(hyper_para[1]):  # _l2:{}_bkg:{}'.format()
-    hyper = '{}_{}_loss:{}_lr:0.01'.format('Deeplabv3', Config.backbone, 'deeplab_loss')
-    tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
-    timer = TimerCallback()
-    print(hyper)
-    print()
-    model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
-    #network.summary()
-    if not os.path.exists(model_weights_saver):
-        print('model start to compile')
-        deeplab_loss = deeplab_cls_cross_loss2(np.array([0.5, 0.91, 1.01, 0.68, 1.9]))
-        network.compile(optimizer=optimizer, loss=deeplab_loss, metrics=['accuracy'])
+    for i, epi_weight in enumerate(hyper_para[1]):
+       for j, fib_weight in enumerate(hyper_para[2]):
+           for x, inf_weight in enumerate(hyper_para[3]):
+               for v, other_weight in enumerate(hyper_para[4]):
+                   hyper = '{}_{}_epi:{}_fib:{}_inf:{}_other:{}_lr:0.01'.format('Deeplabv3+', Config.backbone,
+                                                                                epi_weight, fib_weight,
+                                                                                inf_weight, other_weight)
+                   tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
+                   timer = TimerCallback()
+                   print(hyper)
+                   print()
+                   model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
+                   #network.summary()
+                   if not os.path.exists(model_weights_saver):
+                        print('model start to compile')
+                        deeplab_loss = deeplab_cls_cross_loss2(np.array([0.5, epi_weight, fib_weight, inf_weight, other_weight]))
+                        network.compile(optimizer=optimizer, loss=deeplab_loss, metrics=['accuracy'])
 
-        print('{} gpu classification is training'.format(Config.gpu_count))
+                        print('{} gpu classification is training'.format(Config.gpu_count))
 
-        network.fit_generator(generator(data[0], data[1], batch_size=BATCH_SIZE),
-                                        epochs=EPOCHS,
-                                        steps_per_epoch=STEP_PER_EPOCH,
-                                        validation_data=generator(data[2], data[3], batch_size=BATCH_SIZE),
-                                        validation_steps=3,
-                                        callbacks=[timer, tensorboard_callback, earlystop_callback,
-                                                   LearningRateScheduler(lr_scheduler)])
-        model_json = network.to_json()
-        with open('json_' + hyper + '.json', 'w') as json_file:
-            json_file.write(model_json)
-        network.save_weights(model_weights_saver)
-        print(hyper + 'has been saved')
+                        network.fit_generator(generator(data[0], data[1], batch_size=BATCH_SIZE),
+                                                        epochs=EPOCHS,
+                                                        steps_per_epoch=STEP_PER_EPOCH,
+                                                        validation_data=generator(data[2], data[3], batch_size=BATCH_SIZE),
+                                                        validation_steps=3,
+                                                        callbacks=[timer, tensorboard_callback, earlystop_callback,
+                                                                   LearningRateScheduler(lr_scheduler)])
+                        model_json = network.to_json()
+                        with open('json_' + hyper + '.json', 'w') as json_file:
+                            json_file.write(model_json)
+                        network.save_weights(model_weights_saver)
+                        print(hyper + 'has been saved')
