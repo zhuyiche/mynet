@@ -230,11 +230,11 @@ def eval_testset(model, prob_threshold=None, print_img=False, print_single_resul
     precision = tp_total_num/(pred_total_num + epsilon)
     recall = tp_total_num / (gt_total_num + epsilon)
     f1_score = 2 * (precision * recall) / (precision + recall + epsilon)
-    print('Over points, the precision: {}, recall: {}, f1: {}'.format(precision, recall, f1_score))
-    if prob_threshold is not None:
-        print('The nms threshold is {}'.format(prob_threshold))
-    print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(total_p/20,total_r/20,total_f1/20, total_tp/20))
-    return precision, recall, f1_score, total_p/20,total_r/20,total_f1/20, total_tp/20
+    #print('Over points, the precision: {}, recall: {}, f1: {}'.format(precision, recall, f1_score))
+    #if prob_threshold is not None:
+        #print('The nms threshold is {}'.format(prob_threshold))
+    #print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(total_p/20,total_r/20,total_f1/20, total_tp/20))
+    return precision, recall, f1_score, total_p/20,total_r/20,total_f1/20, total_tp/20, prob_threshhold
 
 
 def test_11(model):
@@ -266,18 +266,19 @@ if __name__ == '__main__':
         best_f1 = 0
         best_tf = 0
         best_p, best_r, best_tp, best_tr, best_tpp = 0, 0, 0, 0, 0
+        best_pppp, best_pppppp=0, 0
         for prob in prob_threshhold:
             print('The nms threshold is ', prob)
-            p, r ,f1, tp, tr, tf, tpp = eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
+            p, r ,f1, tp, tr, tf, tpp, pppp= eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
             if best_f1 == 0:
                 best_f1, best_tf = f1, tf
             else:
                 if f1 > best_f1:
-                    best_p, best_r, best_f1, best_tpp = p, r, f1, tpp
+                    best_p, best_r, best_f1, best_tpp, best_pppp = p, r, f1, tpp, pppp
                 if tf > best_tf:
-                    best_tp, best_tr, best_tf = tp, tr, tf
-        print('The best point score is p: {}, r: {}, f1: {}'.format(best_p, best_r, best_f1))
-        print('The best average score is p: {}, r: {}, f1: {}'.format(best_tp, best_tr, best_tf))
+                    best_tp, best_tr, best_tf, best_pppppp = tp, tr, tf, pppp
+        print('The best point score is p: {}, r: {}, f1: {} at prob: {}'.format(best_p, best_r, best_f1, best_pppp))
+        print('The best average score is p: {}, r: {}, f1: {} at prob: {}'.format(best_tp, best_tr, best_tf, best_pppppp))
 
 
 
