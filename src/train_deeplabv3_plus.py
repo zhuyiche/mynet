@@ -5,7 +5,7 @@ from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, Learnin
 from config import Config
 from keras.utils import np_utils
 from deeplabv3_plus import load_pretrain_weights, preprocess_input, Deeplab#, Deeplabv3Plus
-from loss import deeplab_cls_cross_loss, deeplab_cls_cross_loss2, deeplab_cls_normal_loss2
+from loss import deeplab_cls_cross_loss, deeplab_cls_cross_loss, deeplab_cls_normal_loss2
 import os
 import numpy as np
 from imgaug import augmenters as iaa
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     print('This model is using {}'.format(Config.backbone))
     print()
     hyper_para = cls_fcn_tune_loss_weight()
-    BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
+    BATCH_SIZE = 3 * Config.gpu_count
     print('batch size is :', BATCH_SIZE)
     EPOCHS = Config.epoch
     network = Deeplab.deeplabv3_plus(weights=None, backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
@@ -211,11 +211,11 @@ if __name__ == '__main__':
                    timer = TimerCallback()
                    print(hyper)
                    print()
-                   model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
+                   model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '.h5')
                    #network.summary()
                    if not os.path.exists(model_weights_saver):
                         print('model start to compile')
-                        deeplab_loss = deeplab_cls_cross_loss2(np.array([0.5, epi_weight, fib_weight, inf_weight, other_weight]))
+                        deeplab_loss = deeplab_cls_cross_loss(np.array([0.5, epi_weight, fib_weight, inf_weight, other_weight]))
                         network.compile(optimizer=optimizer, loss=deeplab_loss, metrics=['accuracy'])
 
                         print('{} gpu classification is training'.format(Config.gpu_count))
@@ -228,7 +228,7 @@ if __name__ == '__main__':
                                                         callbacks=[timer, tensorboard_callback, earlystop_callback,
                                                                    LearningRateScheduler(lr_scheduler)])
                         model_json = network.to_json()
-                        with open('json_' + hyper + '.json', 'w') as json_file:
+                        with open(os.path.join(ROOT_DIR, 'json_files', hyper + '.json', 'w')) as json_file:
                             json_file.write(model_json)
                         network.save_weights(model_weights_saver)
                         print(hyper + 'has been saved')

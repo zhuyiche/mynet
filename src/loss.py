@@ -6,7 +6,7 @@ epsilon = 1e-7
 cls_threshold = 0.8
 
 
-def deeplab_cls_cross_loss2(weights):
+def deeplab_cls_cross_loss(weights):
     #print(weights.shape)
     #weights = tf.convert_to_tensor(weights, np.float32)#K.variable(weights)
     def _cls_loss(y_true, y_pred):
@@ -18,8 +18,8 @@ def deeplab_cls_cross_loss2(weights):
         #y_pred = K.cast(y_pred, tf.float32)
         #y_true = K.cast(y_true, tf.float32)
         #result_b = weights[0] * (1-y_true_1-y_true_2-y_true_3-y_true_4)* K.log(1-y_pred_1-y_pred_2-y_pred_3-y_pred_4)
-
-        result = -K.mean(y_true * indicator * K.log(y_pred) * weights)
+        smoother = K.pow((1 - y_pred), 0.5)
+        result = -K.mean(smoother * y_true * indicator * K.log(y_pred) * weights)
         return result
     return _cls_loss
 
@@ -33,7 +33,7 @@ def deeplab_cls_normal_loss2():
         return result
     return _cls_loss
 
-def deeplab_cls_cross_loss(weight):
+def deeplab_cls_cross_losssss(weight):
     _weights = K.variable(value=weight)
     weights = keras.backend.placeholder(shape=(1, 5))
     tf_session = K.get_session()
