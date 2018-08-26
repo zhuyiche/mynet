@@ -236,10 +236,6 @@ def eval_testset(model, prob_threshold=None, print_img=False, print_single_resul
     print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(total_p/20,total_r/20,total_f1/20, total_tp/20))
     return precision, recall, f1_score, total_p/20,total_r/20,total_f1/20, total_tp/20
 
-def best_test():
-
-
-
 
 def test_11(model):
     p, r, f1, tp, gt, pred= eval_single_img(model, 'img11', print_img=True,
