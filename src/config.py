@@ -23,6 +23,7 @@ class Config(object):
     parser.add_argument("--test_img", default=15, type=int)
     parser.add_argument("--data", default='crop', type=str)
     parser.add_argument("--det_weight", type=float, default=0.1)
+    parser.add_argument("--opt", default='sgd', type=str)
     args = parser.parse_args()
     det_weight = args.det_weight
     backbone = args.backbone
@@ -41,3 +42,4 @@ class Config(object):
     type = args.type
     test_img = args.test_img
     extend_program = args.extend
+    opt = args.opt

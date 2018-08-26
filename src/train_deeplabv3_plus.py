@@ -180,10 +180,10 @@ if __name__ == '__main__':
     print('This model is using {}'.format(Config.backbone))
     print()
     hyper_para = cls_fcn_tune_loss_weight()
-    BATCH_SIZE = 3 * Config.gpu_count
+    BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
     print('batch size is :', BATCH_SIZE)
     EPOCHS = Config.epoch
-    network = Deeplab.deeplabv3_plus(weights= None, backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
+    network = Deeplab.deeplabv3_plus(weights=None, backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
     earlystop_callback = EarlyStopping(monitor='val_loss',
                                    patience=5,
                                    min_delta=0.001)
@@ -192,7 +192,10 @@ if __name__ == '__main__':
 
     data = data_prepare(print_input_shape=True, print_image_shape=True)
     #optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
-    optimizer = Adagrad(lr=0.01)
+    if Config.opt == 'sgd':
+        optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
+    elif Config.opt == 'adagrad':
+        optimizer = Adagrad(lr=0.01)
     STEP_PER_EPOCH = int(len(data[0])/BATCH_SIZE)
 
     #for k, bkg_weight in enumerate(hyper_para[3]):

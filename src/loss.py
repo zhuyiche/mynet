@@ -19,7 +19,7 @@ def deeplab_cls_cross_loss2(weights):
         #y_true = K.cast(y_true, tf.float32)
         #result_b = weights[0] * (1-y_true_1-y_true_2-y_true_3-y_true_4)* K.log(1-y_pred_1-y_pred_2-y_pred_3-y_pred_4)
 
-        result = -K.mean(y_true * indicator * y_pred * weights)
+        result = -K.mean(y_true * indicator * K.log(y_pred) * weights)
         return result
     return _cls_loss
 
