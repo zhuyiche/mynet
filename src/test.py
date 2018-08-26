@@ -307,16 +307,16 @@ if __name__ == '__main__':
     model = Fcn_det().relufirst_fcn36_deconv_backbone()
     #eval_weights_testset(WEIGHT_DIR)
     for weight in os.listdir(WEIGHT_DIR):
-        if 'loss:fd_relufirst_det:' + str(Config.det_weight) in weight:
-            print(weight)
-            weightp = os.path.join(WEIGHT_DIR, weight)
-            model.load_weights(weightp)
-        #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
-            prob_threshhold = [0.3, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
-            #eval_single_img(model, imgdir)
-            for prob in prob_threshhold:
-                print('The nms threshold is ', prob)
-                eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
+        #if 'loss:fd_relufirst_det:' + str(Config.det_weight) in weight:
+        print(weight)
+        weightp = os.path.join(WEIGHT_DIR, weight)
+        model.load_weights(weightp)
+    #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
+        prob_threshhold = [0.1, 0.15, 0.2, 0.22, 0.25, 0.28, 0.3, 0.32, 0.35, 0.38, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
+        #eval_single_img(model, imgdir)
+        for prob in prob_threshhold:
+            print('The nms threshold is ', prob)
+            eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
 
 
 
