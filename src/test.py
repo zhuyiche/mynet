@@ -268,7 +268,7 @@ if __name__ == '__main__':
         best_p, best_r, best_tp, best_tr, best_tpp = 0, 0, 0, 0, 0
         best_pppp, best_pppppp=0, 0
         for prob in prob_threshhold:
-            print('The nms threshold is ', prob)
+            ##print('The nms threshold is ', prob)
             p, r ,f1, tp, tr, tf, tpp, pppp= eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
             if best_f1 == 0:
                 best_f1, best_tf = f1, tf
