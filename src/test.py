@@ -233,59 +233,12 @@ def eval_testset(model, prob_threshold=None, print_img=False, print_single_resul
     print('Over points, the precision: {}, recall: {}, f1: {}'.format(precision, recall, f1_score))
     if prob_threshold is not None:
         print('The nms threshold is {}'.format(prob_threshold))
-    print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(total_p/20,
-                                                                           total_r/20,
-                                                                           total_f1/20,
-                                                                           total_tp/20))
-    return total_p/20, total_r/20, total_f1/20
+    print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(total_p/20,total_r/20,total_f1/20, total_tp/20))
+    return precision, recall, f1_score, total_p/20,total_r/20,total_f1/20, total_tp/20
 
-def eval_weights_testset(weightsdir):
-    weights_dict = {'best_p': 0, 'best_r': 0, 'best_f1': 0,
-                    'best_p_model': None, 'best_r_mode': None,
-                    'best_f1_model':None, 'best_p_prob': None,
-                    'best_r_prob': None, 'best_f1_prob': None}
-    print('Start model evalutation')
-    for i, weight_dir in enumerate(os.listdir(weightsdir)):
-        if 'resnet50' in weight_dir:
-            model = Detnet().detnet_resnet50_backbone()
-        elif 'resnet101' in weight_dir:
-            model = Detnet().detnet_resnet101_backbone()
-        elif 'resnet152' in weight_dir:
-            model = Detnet().detnet_resnet152_backbone()
+def best_test():
 
-        model.load_weights(os.path.join(WEIGHT_DIR, weight_dir))
-        for prob in prob_threshhold:
-            print('###################')
-            print('current model is {} at threshold {}'.format(weight_dir, prob))
-            avg_p, avg_r, avg_f1 = eval_testset(model, prob_threshold=prob, print_img=False,
-                                                print_single_result=False)
-            if np.round(avg_r) < 0.8:
-                break
-            if weights_dict['best_p'] == 0:
-                weights_dict['best_p'], weights_dict['best_r'], weights_dict['best_f1'] = avg_p, avg_r, avg_f1
-            else:
-                if avg_p > weights_dict['best_p'] and avg_r > 0.6 and avg_f1 > 0.6:
-                    weights_dict['best_p'] = avg_p
-                    weights_dict['best_p_model'] = weight_dir
-                    weights_dict['best_p_prob'] = prob
-                if avg_r > weights_dict['best_r'] and avg_p > 0.6 and avg_f1 > 0.6:
-                    weights_dict['best_r'] = avg_r
-                    weights_dict['best_r_model'] = weight_dir
-                    weights_dict['best_r_prob'] = prob
-                if avg_f1 > weights_dict['best_f1'] and avg_r > 0.6 and avg_p > 0.6:
-                    weights_dict['best_f1'] = avg_f1
-                    weights_dict['best_f1_model'] = weight_dir
-                    weights_dict['best_f1_prob'] = prob
 
-        print('best precision is {} with model {} at threshold {}'.format(weights_dict['best_p'],
-                                                                          weights_dict['best_p_model'],
-                                                                          weights_dict['best_p_prob']))
-        print('best recall is {} with model {} at threshold {}'.format(weights_dict['best_r'],
-                                                                       weights_dict['best_p_model'],
-                                                                       weights_dict['best_p_prob']))
-        print('best f1 is {} with model {} at threshold {}'.format(weights_dict['best_f1'],
-                                                                   weights_dict['best_f1_model'],
-                                                                   weights_dict['best_f1_prob']))
 
 
 def test_11(model):
@@ -314,9 +267,21 @@ if __name__ == '__main__':
     #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
         prob_threshhold = [0.1, 0.15, 0.2, 0.22, 0.25, 0.28, 0.3, 0.32, 0.35, 0.38, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
         #eval_single_img(model, imgdir)
+        best_f1 = 0
+        best_tf = 0
+        best_p, best_r, best_tp, best_tr, best_tpp = 0, 0, 0, 0, 0
         for prob in prob_threshhold:
             print('The nms threshold is ', prob)
-            eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
+            p, r ,f1, tp, tr, tf, tpp = eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
+            if best_f1 == 0:
+                best_f1, best_tf = f1, tf
+            else:
+                if f1 > best_f1:
+                    best_p, best_r, best_f1, best_tpp = p, r, f1, tpp
+                if tf > best_tf:
+                    best_tp, best_tr, best_tf = tp, tr, tf
+        print('The best point score is p: {}, r: {}, f1: {}'.format(best_p, best_r, best_f1))
+        print('The best average score is p: {}, r: {}, f1: {}'.format(best_tp, best_tr, best_tf))
 
 
 
