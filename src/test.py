@@ -234,7 +234,7 @@ def eval_testset(model, prob_threshold=None, print_img=False, print_single_resul
     #if prob_threshold is not None:
         #print('The nms threshold is {}'.format(prob_threshold))
     #print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(total_p/20,total_r/20,total_f1/20, total_tp/20))
-    return precision, recall, f1_score, total_p/20,total_r/20,total_f1/20, total_tp/20, prob_threshhold
+    return precision, recall, f1_score, total_p/20,total_r/20,total_f1/20, total_tp/20
 
 
 def test_11(model):
@@ -269,14 +269,14 @@ if __name__ == '__main__':
         best_pppp, best_pppppp=0, 0
         for prob in prob_threshhold:
             ##print('The nms threshold is ', prob)
-            p, r ,f1, tp, tr, tf, tpp, pppp= eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
+            p, r ,f1, tp, tr, tf, tpp= eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
             if best_f1 == 0:
                 best_f1, best_tf = f1, tf
             else:
                 if f1 > best_f1:
-                    best_p, best_r, best_f1, best_tpp, best_pppp = p, r, f1, tpp, pppp
+                    best_p, best_r, best_f1, best_tpp, best_pppp = p, r, f1, tpp, prob
                 if tf > best_tf:
-                    best_tp, best_tr, best_tf, best_pppppp = tp, tr, tf, pppp
+                    best_tp, best_tr, best_tf, best_pppppp = tp, tr, tf, prob
         print('The best point score is p: {}, r: {}, f1: {} at prob: {}'.format(best_p, best_r, best_f1, best_pppp))
         print('The best average score is p: {}, r: {}, f1: {} at prob: {}'.format(best_tp, best_tr, best_tf, best_pppppp))
 
