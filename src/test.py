@@ -217,7 +217,7 @@ def eval_testset(model, prob_threshold=None, print_img=False, print_single_resul
         p, r, f1, tp, gt, pred = eval_single_img(model, img_dir, print_img=print_img,
                                        print_single_result=print_single_result,
                                        prob_threshold=prob_threshold)
-        print('{} p: {}, r: {}, f1: {}, tp: {}'.format(img_dir, p, r, f1, tp))
+        #print('{} p: {}, r: {}, f1: {}, tp: {}'.format(img_dir, p, r, f1, tp))
         total_p += p
         total_r += r
         total_f1 += f1
