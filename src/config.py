@@ -43,3 +43,10 @@ class Config(object):
     test_img = args.test_img
     extend_program = args.extend
     opt = args.opt
+
+if __name__ == '__main__':
+    a = '/home/zhuyiche/Desktop/cell/CRCHistoPhenotypes_2016_04_28/cls_and_det/train/img1/img1_others.mat'
+    inf = '/home/zhuyiche/Desktop/cell/CRCHistoPhenotypes_2016_04_28/cls_and_det/train/img1/img1_inflammatory.mat'
+    from scipy.io import loadmat
+    othermat = loadmat(a)['detection']
+    print(othermat)

@@ -17,7 +17,7 @@ if ROOT_DIR.endswith('src'):
     ROOT_DIR = os.path.dirname(ROOT_DIR)
 
 WEIGHT_DIR = os.path.join(ROOT_DIR, 'model_weights')
-IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'test')
+IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'train')
 #IMG_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det', 'test')
 epsilon = 1e-6
 
@@ -146,10 +146,10 @@ def eval_single_img(model, img_dir, print_img=True,
     img = img / 128.0
     img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
     output = model.predict(img)[0]
-    epi_output = output[:, :, 1]
-    fib_output = output[:, :, 2]
-    inf_output = output[:, :, 3]
-    other_output = output[:, :, 4]
+    output1 = output[:, :, 1]
+    output2 = output[:, :, 2]
+    output3 = output[:, :, 3]
+    output4 = output[:, :, 4]
 
     def _predic_crop_image(img, print_img=print_img):
         img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
@@ -157,26 +157,27 @@ def eval_single_img(model, img_dir, print_img=True,
         output = np.argmax(output)
         return output
     argma = np.argmax(output)
-    print(argma.shape)
+    #print(argma.shape)
     if print_img:
-        plt.imshow(np.argmax(output))
+        plt.imshow(output[output[:, :, 1] > 0.3])
         plt.title(weight_path)
         plt.colorbar()
         plt.show()
     #print(output.shape)
 
-    epi_p, epi_r, epi_f1, epi_tp, epi_gt, epi_prednum = cls_score_single_img(epi_output, img_dir=img_dir, type='epi',
+    epi_p, epi_r, epi_f1, epi_tp, epi_gt, epi_prednum = cls_score_single_img(output4, img_dir=img_dir, type='epi',
                                                                              prob_threshold=prob_threshold,
                                                                              print_single_result=print_single_result)
-    fib_p, fib_r, fib_f1, fib_tp, fib_gt, fib_prednum = cls_score_single_img(fib_output, img_dir=img_dir,
+    fib_p, fib_r, fib_f1, fib_tp, fib_gt, fib_prednum = cls_score_single_img(output3, img_dir=img_dir,
                                                                              prob_threshold=prob_threshold, type='fib',
                                                                              print_single_result=print_single_result)
-    inf_p, inf_r, inf_f1, inf_tp, inf_gt, inf_prednum = cls_score_single_img(inf_output, img_dir=img_dir,
+    inf_p, inf_r, inf_f1, inf_tp, inf_gt, inf_prednum = cls_score_single_img(output4, img_dir=img_dir,
                                                                              prob_threshold=prob_threshold, type='inf',
                                                                              print_single_result=print_single_result)
-    other_p, other_r, other_f1, other_tp, other_gt, other_prednum = cls_score_single_img(other_output, img_dir=img_dir,
+    other_p, other_r, other_f1, other_tp, other_gt, other_prednum = cls_score_single_img(output1, img_dir=img_dir,
                                                                              prob_threshold=prob_threshold, type='other',
                                                                              print_single_result=print_single_result)
+    print('epi_f1: {}, fib_f1: {}, inf_f1: {}, other_f1: {}'.format(epi_f1, fib_f1, inf_f1, other_f1))
     total_gt = epi_gt + fib_gt + inf_gt + other_gt
     total_tp = epi_tp + fib_tp + inf_tp + inf_tp
     total_prednum = epi_prednum + fib_prednum + inf_prednum + inf_prednum
@@ -239,7 +240,7 @@ def eval_testset(model, prob_threshold=None, print_img=False, print_single_resul
         p, r, f1, tp, gt, pred = eval_single_img(model, img_dir, print_img=print_img,
                                        print_single_result=print_single_result,
                                        prob_threshold=prob_threshold)
-        print('{} p: {}, r: {}, f1: {}, tp: {}'.format(img_dir, p, r, f1, tp))
+        #print('{} p: {}, r: {}, f1: {}, tp: {}'.format(img_dir, p, r, f1, tp))
         total_p += p
         total_r += r
         total_f1 += f1
@@ -252,13 +253,10 @@ def eval_testset(model, prob_threshold=None, print_img=False, print_single_resul
     precision = tp_total_num/(pred_total_num + epsilon)
     recall = tp_total_num / (gt_total_num + epsilon)
     f1_score = 2 * (precision * recall) / (precision + recall + epsilon)
-    print('Over points, the precision: {}, recall: {}, f1: {}'.format(precision, recall, f1_score))
-    if prob_threshold is not None:
-        print('The nms threshold is {}'.format(prob_threshold))
-    print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(total_p/20,
-                                                                           total_r/20,
-                                                                           total_f1/20,
-                                                                           total_tp/20))
+    #print('Over points, the precision: {}, recall: {}, f1: {}'.format(precision, recall, f1_score))
+   # if prob_threshold is not None:
+      #  print('The nms threshold is {}'.format(prob_threshold))
+    #print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(total_p/20,total_r/20,total_f1/20,total_tp/20))
     return total_p/20, total_r/20, total_f1/20
 
 def eval_weights_testset(weightsdir):
@@ -326,7 +324,10 @@ if __name__ == '__main__':
     start = time.time()
     #weight_path = 'focal_double_resnet50_loss:fd_det:0.1_fkg:2_bkg:2_lr:0.01_train.h5'
     imgdir = 'img' + str(2)
+
     model = Deeplab.deeplabv3_plus(weights=None, backbone='xception', input_shape=(256, 256, 3), classes=5)
+    image_dir = '/home/zhuyiche/Desktop/cell/CRCHistoPhenotypes_2016_04_28/cls_and_det/train/img1'
+    #model.load_weights()
     #eval_weights_testset(WEIGHT_DIR)
     for weight in os.listdir(WEIGHT_DIR):
         if 'Deeplab' in weight:
@@ -334,7 +335,7 @@ if __name__ == '__main__':
             weightp = os.path.join(WEIGHT_DIR, weight)
             model.load_weights(weightp)
         #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
-            prob_threshhold = [0.3, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
+            prob_threshhold = [0.2]#0.3, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
             #eval_single_img(model, imgdir)
             for prob in prob_threshhold:
                 print('The nms threshold is ', prob)
