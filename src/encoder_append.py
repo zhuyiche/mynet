@@ -18,6 +18,7 @@ from util import *
 from encoder_decoder_object_det import callback_preparation, crop_shape_generator_with_heavy_aug, TimerCallback
 import scipy.misc as misc
 from eval import mymetrics
+from loss import cls_cross_entropy
 
 weight_decay = 0.005
 epsilon = 1e-7
@@ -661,6 +662,19 @@ def fcn_detnet_focal_model_compile(nn, det_loss_weight,
         nn.summary()
     return nn
 
+def cls_focal_compile(nn, cls_loss_weight,
+                         optimizer, summary=False,
+                         fkg_smooth_factor=None,
+                         bkg_smooth_factor=None):
+
+    loss_input = cls_cross_entropy(cls_loss_weight)
+    nn.compile(optimizer=optimizer,
+                      loss=loss_input,
+                      metrics=['accuracy'])
+    if summary==True:
+        nn.summary()
+    return nn
+
 
 def fcn_detnet_normal_model_compile(nn, det_loss_weight,
                          optimizer, summary=False):
@@ -758,15 +772,9 @@ if __name__ == '__main__':
                         print(hyper)
                         print()
                         model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
-
+                        cls_loss = np.array([i, j, x, v])
                         if not os.path.exists(model_weights_saver):
-                            fcn_detnet_model = fcn_detnet_focal_model_compile(nn=multi_gpu_fcn_detnet ,
-                                                                              summary=Config.summary,
-                                                                              det_loss_weight=np.array(
-                                                                                  [0.13, 0.87]),
-                                                                              optimizer=optimizer,
-                                                                              fkg_smooth_factor=0.5,
-                                                                              bkg_smooth_factor=0.5)
+                            fcn_detnet_model = cls_focal_compile(nn=multi_gpu_fcn_detnet,cls_loss_weight=cls_loss, optimizer=optimizer)
                             print('{} gpu fcn36 focal detection is training'.format(Config.gpu_count))
 
                             #list_callback = callback_preparation(fcn_detnet, hyper)

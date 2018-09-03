@@ -5,6 +5,18 @@ import keras
 epsilon = 1e-7
 cls_threshold = 0.8
 
+def cls_cross_entropy(weights):
+    #print(weights.shape)
+    #weights = tf.convert_to_tensor(weights, np.float32)#K.variable(weights)
+    def _cls_loss(y_true, y_pred):
+        indicator = K.greater_equal(y_pred, cls_threshold)
+        indicator = K.cast(indicator, tf.float32)
+        y_pred = tf.clip_by_value(y_pred, epsilon, 1-epsilon)
+        smoother = K.pow((1 - y_pred), 0.5)
+        result = -K.mean(weights * smoother * K.log(y_pred) * y_true)
+        return result
+    return _cls_loss
+
 
 def deeplab_cls_cross_loss(weights):
     #print(weights.shape)
@@ -13,13 +25,8 @@ def deeplab_cls_cross_loss(weights):
         indicator = K.greater_equal(y_pred, cls_threshold)
         indicator = K.cast(indicator, tf.float32)
         y_pred = tf.clip_by_value(y_pred, epsilon, 1-epsilon)
-        #print(y_pred.shape)
-        #print(y_true)
-        #y_pred = K.cast(y_pred, tf.float32)
-        #y_true = K.cast(y_true, tf.float32)
-        #result_b = weights[0] * (1-y_true_1-y_true_2-y_true_3-y_true_4)* K.log(1-y_pred_1-y_pred_2-y_pred_3-y_pred_4)
         smoother = K.pow((1 - y_pred), 0.5)
-        result = -K.mean(smoother*K.log(y_pred)*y_true)
+        result = -K.mean(weights * smoother * K.log(y_pred) * y_true)
         return result
     return _cls_loss
 
