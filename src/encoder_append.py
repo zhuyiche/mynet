@@ -616,16 +616,18 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
 
     if print_image_shape:
         print('Image shape print below: ')
-        print('train_imgs: {}, train_det_masks: {}'.format(train_imgs.shape, train_det_masks.shape))
-        print('valid_imgs: {}, valid_det_masks: {}'.format(valid_imgs.shape, valid_det_masks.shape))
+        print('train_imgs: {}, train_det_masks: {}, train_cls_masks: {}'.format(train_imgs.shape, train_det_masks.shape, train_cls_masks.shape))
+        print('valid_imgs: {}, valid_det_masks: {}, valid_cls_masks: {}'.format(valid_imgs.shape, valid_det_masks.shape, valid_cls_masks.shape))
         print('test_imgs: {}, test_det_masks: {}'.format(test_imgs.shape, test_det_masks.shape))
         print()
 
     train_det = np_utils.to_categorical(train_det_masks, 2)
+    train_cls = np_utils.to_categorical(train_cls_masks, 5)
     print('train_det: {}'.format(train_det.shape))
     #train_det = reshape_mask(train_det_masks, train_det, 2)
 
     valid_det = np_utils.to_categorical(valid_det_masks, 2)
+    valid_cls = np_utils.to_categorical(valid_cls_masks, 5)
     #valid_det = reshape_mask(valid_det_masks, valid_det, 2)
 
     test_det = np_utils.to_categorical(test_det_masks, 2)
@@ -633,11 +635,11 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
 
     if print_input_shape:
         print('input shape print below: ')
-        print('train_imgs: {}, train_det: {}'.format(train_imgs.shape, train_det.shape))
-        print('valid_imgs: {}, valid_det: {}'.format(valid_imgs.shape, valid_det.shape))
+        print('train_imgs: {}, train_det: {}, train_cls: {}'.format(train_imgs.shape, train_det.shape, train_cls.shape))
+        print('valid_imgs: {}, valid_det: {}, valid_cls: {}'.format(valid_imgs.shape, valid_det.shape, valid_cls.shape))
         print('test_imgs: {}, test_det: {}'.format(test_imgs.shape, test_det.shape))
         print()
-    return [train_imgs, train_det, valid_imgs, valid_det, train_cls_masks, valid_cls_masks]
+    return [train_imgs, train_det, valid_imgs, valid_det, train_cls, valid_cls]
 
 
 def fcn_detnet_focal_model_compile(nn, det_loss_weight,
@@ -708,7 +710,7 @@ def set_fcn36_num_step_and_aug():
 
 def generator(features, det_labels, batch_size):
     batch_features = np.zeros((batch_size, 256, 256, 3))
-    batch_det_labels = np.zeros((batch_size, 256, 256, 2))
+    batch_det_labels = np.zeros((batch_size, 256, 256, 5))
     while True:
         counter = 0
         for i in range(batch_size):
