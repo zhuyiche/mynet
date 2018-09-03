@@ -578,109 +578,7 @@ class Fcn_det:
                              outputs=x_output)
         return detnet_model
 
-    ####################################
-    # FCN 27 as in paper sfcn-opi
-    ####################################
-    def fcn27_backbone(self, l2_weight=0.001):
-        #######################################
-        # Extra branch for every pyramid feature
-        #######################################
-        def feature_prediction_deconv_branch(self, C6=None, C5=None, C4=None, C3=None, C2=None):
-            """
 
-            :param features: input feature is from every feature pyramid layer,
-                             should've been already connect with 1x1 convolution layer.
-            """
-
-            def _64to512(input, type):
-                x_deconv128 = Conv2DTranspose(kernel_size=(3, 3),
-                                              filters=256, strides=(2, 2), name=type + '_deconv_1')(input)
-                x_deconv128 = BatchNormalization()(x_deconv128)
-                x_deconv128 = Activation('relu')(x_deconv128)
-                x_deconv256 = Conv2DTranspose(kernel_size=(3, 3),
-                                              filters=256, strides=(2, 2), name=type + '_deconv_2')(x_deconv128)
-                x_deconv256 = BatchNormalization()(x_deconv256)
-                x_deconv256 = Activation('relu')(x_deconv256)
-                x_deconv512 = Conv2DTranspose(kernel_size=(3, 3),
-                                              filters=2, strides=(2, 2), name=type + '_deconv_3')(x_deconv256)
-                return x_deconv512
-
-            # in detnet setting, C6.shape == C5.shape == C4.shape, in fcn27 this is 1/4 of origin image
-            C6_deconv = _64to512(C6, 'C6')
-            C5_deconv = _64to512(C5, 'C5')
-            C4_deconv = _64to512(C4, 'C4')
-            C3_deconv_256 = Conv2DTranspose(kernel_size=(3, 3),
-                                            filters=256, strides=(2, 2), name='C3_deconv_1')(C3)
-            C3_deconv_256 = BatchNormalization()(C3_deconv_256)
-            C3_deconv_256 = Activation('relu')(C3_deconv_256)
-            C3_deconv_512 = Conv2DTranspose(kernel_size=(3, 3), filters=2, strides=(2, 2), name='C3_deconv_2')(
-                C3_deconv_256)
-
-            C2_deconv_512 = Conv2DTranspose(kernel_size=(3, 3),
-                                            filters=2, strides=(2, 2), name='C2_deconv_1')(C2)
-
-            C23456_concat = Concatenate()([C6_deconv, C5_deconv, C4_deconv, C3_deconv_512, C2_deconv_512])
-
-            return C23456_concat
-        #tf.reset_default_graph()
-        img_input = Input(self.input_shape)
-        #########
-        # Adapted first stage
-        #########
-        x_stage1 = self.first_layer(inputs=img_input, l2_weight=l2_weight)
-        x_stage2, x_stage3, x_stage4 = fcn_27(x_stage1, l2_weight= l2_weight, stages=[2, 3, 4])
-        # stage3 is 1/2 size
-        #########
-        # following layer proposed by DetNet
-        #########
-        x_stage5_B = dilated_with_projection(x_stage4, stage=5, l2_weight= l2_weight)
-        x_stage5_A1 = dilated_bottleneck(x_stage5_B, stage=5, block=1, l2_weight= l2_weight)
-        x_stage5 = dilated_bottleneck(x_stage5_A1, stage=5, block=2, l2_weight= l2_weight)
-        x_stage6_B = dilated_with_projection(x_stage5, stage=6, l2_weight= l2_weight)
-        x_stage6_A1 = dilated_bottleneck(x_stage6_B, stage=6, block=1, l2_weight= l2_weight)
-        x_stage6 = dilated_bottleneck(x_stage6_A1, stage=6, block=2, l2_weight= l2_weight)
-        x_stage2_1x1 = Conv2D(filters=64, kernel_size=(1, 1), padding='same',
-                              name='stage2_1x1_conv')(x_stage2)
-        x_stage3_1x1 = Conv2D(filters=64, kernel_size=(1,1), padding='same',
-                              name = 'stage3_1x1_conv',
-                              kernel_regularizer=l2(l2_weight))(x_stage3)
-        # stage4 is 1/4 size, same as 5 and 6
-        x_stage4_1x1 = Conv2D(filters=128, kernel_size=(1,1), padding='same',
-                              name = 'stage4_1x1_conv',
-                              kernel_regularizer=l2(l2_weight))(x_stage4)
-        x_stage5_1x1 = Conv2D(filters=128, kernel_size=(1, 1), padding='same',
-                              name='stage5_1x1_conv')(x_stage5)
-        x_stage6_1x1 = Conv2D(filters=128, kernel_size=(1, 1), padding='same',
-                              name='stage6_1x1_conv')(x_stage6)
-
-        stage_456 = Add(name='add_stage4_5_6')([x_stage6_1x1, x_stage5_1x1, x_stage4_1x1])
-        stage_456_upsample = Conv2DTranspose(filters=128, kernel_size=(1, 1), strides=(2, 2),
-                                             name='stage456_upsample')(stage_456)
-        stage_3456 = Add(name='stage3_add_456')([stage_456_upsample, x_stage3_1x1])
-        stage_3456_upsample = Conv2DTranspose(filters=64, kernel_size=(3, 3), strides=(2, 2),
-                                              padding='same',
-                                              kernel_regularizer=keras.regularizers.l2(l2_weight),
-                                              name='stage3456_upsample')(stage_3456)
-        stage_23456 = Add(name='stage2_add_3456')([stage_3456_upsample, x_stage2_1x1]) # filters = 64
-        stage_23456_upsample = Conv2DTranspose(filters=32, kernel_size=(3, 3), strides=(2, 2),
-                                              padding='same',
-                                              name='Deconv_b4_softmax_output')(stage_23456)
-
-
-
-<<<<<<< HEAD
-        x_output_b4_softmax = Conv2DTranspose(filters=5, kernel_size=(3, 3), strides=(2, 2),
-                                              padding='same', kernel_regularizer=l2(l2_weight),
-=======
-        x_output_b4_softmax = Conv2DTranspose(filters=2, kernel_size=(3, 3), strides=(2, 2),
-                                              padding='same',
->>>>>>> 74e94ae0ac8be99833a6280ef1c1dc9a53868444
-                                              name='Deconv_b4_softmax_output')(stage_23456)
-
-        x_output = Activation('softmax', name='Final_Softmax')(x_output_b4_softmax)
-        detnet_model = Model(inputs=img_input,
-                             outputs=x_output)
-        return detnet_model
 
 
 def fcn_tune_loss_weight():
@@ -846,7 +744,6 @@ if __name__ == '__main__':
     print('batch size is :', BATCH_SIZE)
     if Config.gpu_count != 1:
         multi_gpu_fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
-<<<<<<< HEAD
         for i, epi_weight in enumerate(hyper_para[5]):
             for j, fib_weight in enumerate(hyper_para[6]):
                 for x, inf_weight in enumerate(hyper_para[7]):
@@ -878,12 +775,12 @@ if __name__ == '__main__':
                             #score.set_model(fcn_detnet)
                             #list_callback.append(Score)
                             fcn_detnet_model.fit_generator(generator(data[0],
-                                                                     data[1],
+                                                                     data[4],
                                                                      batch_size=BATCH_SIZE),
                                                            epochs=EPOCHS,
                                                            steps_per_epoch=STEP_PER_EPOCH,
                                                            validation_data=generator(
-                                                               data[2], data[3], batch_size=BATCH_SIZE),
+                                                               data[2], data[5], batch_size=BATCH_SIZE),
                                                            validation_steps=3,
                                                            callbacks=[timer, tensorboard_callback, earlystop_callback,
                                                                       LearningRateScheduler(lr_scheduler)])
@@ -892,7 +789,7 @@ if __name__ == '__main__':
                                 json_file.write(model_json)
                             fcn_detnet.save_weights(model_weights_saver)
                             print(hyper + 'has been saved')
-=======
+
         """
         print('------------------------------------')
         print('This model is using {}'.format(Config.backbone))
@@ -1040,7 +937,6 @@ if __name__ == '__main__':
                         json_file.write(model_json)
                     fcn_detnet.save_weights(model_weights_saver)
                     print(hyper + 'has been saved')"""
->>>>>>> 74e94ae0ac8be99833a6280ef1c1dc9a53868444
     else:
         print('------------------------------------')
         print('This model is using {}'.format(Config.backbone))
