@@ -533,16 +533,12 @@ class Fcn_det:
                               name='stage6_1x1_conv')(x_stage6)
         x_stage7_1x1 = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
                               name='stage7_1x1_conv')(x_stage7)
+
         x_stage7_1x1 = BatchNormalization(name='stage7_1x1_BN')(x_stage7_1x1)
-        #x_stage7_1x1 = Activation('relu')(x_stage7_1x1)
         x_stage6_1x1 = BatchNormalization(name='stage6_1x1_BN')(x_stage6_1x1)
-        #x_stage6_1x1 = Activation('relu')(x_stage6_1x1)
         x_stage5_1x1 = BatchNormalization(name='stage5_1x1_BN')(x_stage5_1x1)
-        #x_stage5_1x1 = Activation('relu')(x_stage5_1x1)
         x_stage4_1x1 = BatchNormalization(name='stage4_1x1_BN')(x_stage4_1x1)
-        #x_stage4_1x1 = Activation('relu')(x_stage4_1x1)
         x_stage3_1x1 = BatchNormalization(name='stage3_1x1_BN')(x_stage3_1x1)
-        #x_stage3_1x1 = Activation('relu')(x_stage3_1x1)
 
 
         stage_67 = Add(name='add_stage_6_7')([x_stage6_1x1, x_stage7_1x1])
@@ -563,15 +559,12 @@ class Fcn_det:
                                               kernel_regularizer=keras.regularizers.l2(l2_weight),
                                               name='stage_4567_upsample')(stage_4567)
         stage_4567_upsample = BatchNormalization()(stage_4567_upsample)
-        #stage_4567_upsample = Activation('relu')(stage_4567_upsample)
         stage_34567 = Add(name='add_stage_3_4567')([stage_4567_upsample, x_stage3_1x1])  # filters = 64
         stage_34567 = Activation('relu')(stage_34567)
-        #stage_34567_upsample = Conv2DTranspose(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', name='stage_34567_upsample')(stage_34567)
-        #stage_234567 = Add(name='add_stage_2_34567')([stage_34567_upsample, x_stage2_1x1])
 
-        x_feature_concat= _feature_concat_deconv_branch(C7=x_stage7_1x1, C6=stage_67, C5=stage_567,
+        x_feature_concat = _feature_concat_deconv_branch(C7=x_stage7_1x1, C6=stage_67, C5=stage_567,
                                                         C4=stage_4567, C3=stage_34567)
-        x_feature_concat = Conv2D(kernel_size=(1,1), filters=2,padding='same',
+        x_feature_concat = Conv2D(kernel_size=(1,1), filters=5,padding='same',
                                   name='all_feature_concat')(x_feature_concat)
         x_feature_concat = BatchNormalization()(x_feature_concat)
         x_output = Activation('softmax', name='Final_Softmax')(x_feature_concat)
@@ -661,6 +654,7 @@ def fcn_detnet_focal_model_compile(nn, det_loss_weight,
     if summary==True:
         nn.summary()
     return nn
+
 
 def cls_focal_compile(nn, cls_loss_weight,
                          optimizer, summary=False,
@@ -762,17 +756,16 @@ if __name__ == '__main__':
             for j, fib_weight in enumerate(hyper_para[6]):
                 for x, inf_weight in enumerate(hyper_para[7]):
                     for v, other_weight in enumerate(hyper_para[8]):
-                        hyper = '{}_{}_epi:{}_fib:{}_inf:{}_other:{}_lr:0.01'.format('cls_multi_celld', Config.backbone,
+                        hyper = '{}_epi:{}_fib:{}_inf:{}_other:{}_lr:0.01'.format('cls_multi_celld',
                                                                                      epi_weight, fib_weight,
                                                                                      inf_weight, other_weight)
 
-        #hyper = '{}_relufirst_det:0.13_fkg:0.5_bkg:0.5_lr:0.01'.format('cls_multi_celld')  # _l2:{}_bkg:{}'.format()
                         tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
                         timer = TimerCallback()
                         print(hyper)
                         print()
                         model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
-                        cls_loss = np.array([i, j, x, v])
+                        cls_loss = np.array([0.5, i, j, x, v])
                         if not os.path.exists(model_weights_saver):
                             fcn_detnet_model = cls_focal_compile(nn=multi_gpu_fcn_detnet,cls_loss_weight=cls_loss, optimizer=optimizer)
                             print('{} gpu fcn36 focal detection is training'.format(Config.gpu_count))
