@@ -1,4 +1,4 @@
-from util import load_data, set_gpu, set_num_step_and_aug, lr_scheduler, aug_on_fly, heavy_aug_on_fly
+from util import set_gpu, set_num_step_and_aug, lr_scheduler, aug_on_fly, heavy_aug_on_fly
 from keras.optimizers import SGD, Adagrad
 from encoder_decoder_object_det import data_prepare, tune_loss_weight, TimerCallback
 from keras.callbacks import TensorBoard, ModelCheckpoint, EarlyStopping, LearningRateScheduler
@@ -26,7 +26,7 @@ CROP_DATA_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det')
 TENSORBOARD_DIR = os.path.join(ROOT_DIR, 'tensorboard_logs')
 CHECKPOINT_DIR = os.path.join(ROOT_DIR, 'checkpoint')
 WEIGHTS_DIR = os.path.join(ROOT_DIR, 'model_weights')
-
+JSON_DIR = os.path.join(ROOT_DIR, 'json')
 
 def _image_normalization(image, preprocss_num):
     """
@@ -147,9 +147,9 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
 
     if print_input_shape:
         print('input shape print below: ')
-        print('train_imgs: {}, train_det: {}'.format(train_imgs.shape, train_cls.shape))
-        print('valid_imgs: {}, valid_det: {}'.format(valid_imgs.shape, valid_cls.shape))
-        print('test_imgs: {}, test_det: {}'.format(test_imgs.shape, test_cls.shape))
+        print('train_imgs: {}, train_cls: {}'.format(train_imgs.shape, train_cls.shape))
+        print('valid_imgs: {}, valid_cls: {}'.format(valid_imgs.shape, valid_cls.shape))
+        print('test_imgs: {}, test_cls: {}'.format(test_imgs.shape, test_cls.shape))
         print()
     return [train_imgs, train_cls, valid_imgs, valid_cls,  test_imgs, test_cls]
 
@@ -180,7 +180,7 @@ if __name__ == '__main__':
     print('This model is using {}'.format(Config.backbone))
     print()
     hyper_para = cls_fcn_tune_loss_weight()
-    BATCH_SIZE = 3 * Config.gpu_count
+    BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
     print('batch size is :', BATCH_SIZE)
     EPOCHS = Config.epoch
     network = Deeplab.deeplabv3_plus(weights=None, backbone=Config.backbone, input_shape=(256, 256, 3), classes=5)
@@ -225,7 +225,7 @@ if __name__ == '__main__':
                                                         callbacks=[timer, tensorboard_callback, earlystop_callback,
                                                                    LearningRateScheduler(lr_scheduler)])
                         model_json = network.to_json()
-                        with open(os.path.join(ROOT_DIR, 'json_files', hyper + '.json', 'w')) as json_file:
+                        with open(os.path.join(ROOT_DIR, 'json_files', hyper + '.json'), 'w') as json_file:
                             json_file.write(model_json)
                         network.save_weights(model_weights_saver)
                         print(hyper + 'has been saved')

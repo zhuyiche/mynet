@@ -643,40 +643,12 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
     return [train_imgs, train_det, valid_imgs, valid_det, train_cls, valid_cls]
 
 
-def fcn_detnet_focal_model_compile(nn, det_loss_weight,
-                         optimizer, summary=False,
-                         fkg_smooth_factor=None,
-                         bkg_smooth_factor=None):
-
-    loss_input = detection_double_focal_loss_K(det_loss_weight,
-                                               fkg_smooth_factor,
-                                               bkg_smooth_factor)
-    nn.compile(optimizer=optimizer,
-                      loss=loss_input,
-                      metrics=['accuracy'])
-    if summary==True:
-        nn.summary()
-    return nn
-
-
 def cls_focal_compile(nn, cls_loss_weight,
                          optimizer, summary=False,
                          fkg_smooth_factor=None,
                          bkg_smooth_factor=None):
 
     loss_input = cls_cross_entropy(cls_loss_weight)
-    nn.compile(optimizer=optimizer,
-                      loss=loss_input,
-                      metrics=['accuracy'])
-    if summary==True:
-        nn.summary()
-    return nn
-
-
-def fcn_detnet_normal_model_compile(nn, det_loss_weight,
-                         optimizer, summary=False):
-
-    loss_input = detection_loss_K(det_loss_weight)
     nn.compile(optimizer=optimizer,
                       loss=loss_input,
                       metrics=['accuracy'])
@@ -754,7 +726,7 @@ if __name__ == '__main__':
     STEP_PER_EPOCH = int(len(data[0]) / BATCH_SIZE)
     print('batch size is :', BATCH_SIZE)
     if Config.gpu_count != 1:
-        multi_gpu_fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
+        fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
     for i, epi_weight in enumerate(hyper_para[5]):
         for j, fib_weight in enumerate(hyper_para[6]):
             for x, inf_weight in enumerate(hyper_para[7]):
@@ -770,7 +742,7 @@ if __name__ == '__main__':
                     model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
                     cls_loss = np.array([0.5, i, j, x, v])
                     if not os.path.exists(model_weights_saver):
-                        fcn_detnet_model = cls_focal_compile(nn=multi_gpu_fcn_detnet,cls_loss_weight=cls_loss, optimizer=optimizer)
+                        fcn_detnet_model = cls_focal_compile(nn=fcn_detnet,cls_loss_weight=cls_loss, optimizer=optimizer)
                         print('{} gpu fcn36 focal detection is training'.format(Config.gpu_count))
 
                         #list_callback = callback_preparation(fcn_detnet, hyper)

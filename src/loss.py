@@ -26,7 +26,7 @@ def deeplab_cls_cross_loss(weights):
         indicator = K.cast(indicator, tf.float32)
         y_pred = tf.clip_by_value(y_pred, epsilon, 1-epsilon)
         smoother = K.pow((1 - y_pred), 0.5)
-        result = -K.mean(weights * smoother * K.log(y_pred) * y_true)
+        result = -K.mean(smoother * K.log(y_pred) * y_true)
         return result
     return _cls_loss
 
