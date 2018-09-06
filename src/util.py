@@ -9,6 +9,11 @@ from glob import glob
 from imgaug import augmenters as iaa
 import imgaug as ia
 from config import Config
+from PIL import ImageEnhance
+
+ROOT_DIR = os.getcwd()
+if ROOT_DIR.endswith('src'):
+    ROOT_DIR = os.path.dirname(ROOT_DIR)
 
 
 def _isArrayLike(obj):
