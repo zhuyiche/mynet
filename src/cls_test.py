@@ -165,7 +165,7 @@ def eval_single_img(model, img_dir, print_img=True,
         plt.show()
     #print(output.shape)
 
-    epi_p, epi_r, epi_f1, epi_tp, epi_gt, epi_prednum = cls_score_single_img(output4, img_dir=img_dir, type='epi',
+    epi_p, epi_r, epi_f1, epi_tp, epi_gt, epi_prednum = cls_score_single_img(output1, img_dir=img_dir, type='epi',
                                                                              prob_threshold=prob_threshold,
                                                                              print_single_result=print_single_result)
     fib_p, fib_r, fib_f1, fib_tp, fib_gt, fib_prednum = cls_score_single_img(output2, img_dir=img_dir,
