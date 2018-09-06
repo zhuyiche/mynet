@@ -157,7 +157,7 @@ class MaskCreation:
             fib_mat = loadmat(fib_path)
             inflam_mat = loadmat(inflam_path)
             others_mat = loadmat(others_path)
-            det_mask = self.create_mask(det_mat, data_path= self.data_path, order=i, radius=radius, if_detection=True)
+            det_mask = self.create_mask(det_mat, data_path=self.data_path, order=i, radius=radius, if_detection=True)
 
             mat_list.append(epi_mat)
             mat_list.append(fib_mat)

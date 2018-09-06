@@ -14,14 +14,11 @@ from PIL import ImageEnhance
 ROOT_DIR = os.getcwd()
 if ROOT_DIR.endswith('src'):
     ROOT_DIR = os.path.dirname(ROOT_DIR)
-<<<<<<< HEAD
-=======
 
 WEIGHT_DIR = os.path.join(ROOT_DIR, 'model_weights')
 CRC_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28')
 DETECT_DIR = os.path.join(CRC_DIR, 'Detection')
 CLS_DIR = os.path.join(CRC_DIR, 'Classification')
->>>>>>> dd5288216b7e63e6080c638001eb275d2c0860e6
 
 
 def _isArrayLike(obj):

@@ -168,13 +168,13 @@ def eval_single_img(model, img_dir, print_img=True,
     epi_p, epi_r, epi_f1, epi_tp, epi_gt, epi_prednum = cls_score_single_img(output4, img_dir=img_dir, type='epi',
                                                                              prob_threshold=prob_threshold,
                                                                              print_single_result=print_single_result)
-    fib_p, fib_r, fib_f1, fib_tp, fib_gt, fib_prednum = cls_score_single_img(output3, img_dir=img_dir,
+    fib_p, fib_r, fib_f1, fib_tp, fib_gt, fib_prednum = cls_score_single_img(output2, img_dir=img_dir,
                                                                              prob_threshold=prob_threshold, type='fib',
                                                                              print_single_result=print_single_result)
-    inf_p, inf_r, inf_f1, inf_tp, inf_gt, inf_prednum = cls_score_single_img(output4, img_dir=img_dir,
+    inf_p, inf_r, inf_f1, inf_tp, inf_gt, inf_prednum = cls_score_single_img(output3, img_dir=img_dir,
                                                                              prob_threshold=prob_threshold, type='inf',
                                                                              print_single_result=print_single_result)
-    other_p, other_r, other_f1, other_tp, other_gt, other_prednum = cls_score_single_img(output1, img_dir=img_dir,
+    other_p, other_r, other_f1, other_tp, other_gt, other_prednum = cls_score_single_img(output4, img_dir=img_dir,
                                                                              prob_threshold=prob_threshold, type='other',
                                                                              print_single_result=print_single_result)
     print('epi_f1: {}, fib_f1: {}, inf_f1: {}, other_f1: {}'.format(epi_f1, fib_f1, inf_f1, other_f1))
@@ -325,21 +325,20 @@ if __name__ == '__main__':
     #weight_path = 'focal_double_resnet50_loss:fd_det:0.1_fkg:2_bkg:2_lr:0.01_train.h5'
     imgdir = 'img' + str(2)
 
-    model = Deeplab.deeplabv3_plus(weights=None, backbone='xception', input_shape=(256, 256, 3), classes=5)
+    model = Fcn_det().relufirst_fcn36_deconv_backbone()
     image_dir = '/home/zhuyiche/Desktop/cell/CRCHistoPhenotypes_2016_04_28/cls_and_det/train/img1'
     #model.load_weights()
     #eval_weights_testset(WEIGHT_DIR)
     for weight in os.listdir(WEIGHT_DIR):
-        if 'Deeplab' in weight:
-            print(weight)
-            weightp = os.path.join(WEIGHT_DIR, weight)
-            model.load_weights(weightp)
-        #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
-            prob_threshhold = [0.2]#0.3, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
-            #eval_single_img(model, imgdir)
-            for prob in prob_threshhold:
-                print('The nms threshold is ', prob)
-                eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
+        print(weight)
+        weightp = os.path.join(WEIGHT_DIR, weight)
+        model.load_weights(weightp)
+    #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
+        prob_threshhold = [0.2]#0.3, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
+        #eval_single_img(model, imgdir)
+        for prob in prob_threshhold:
+            print('The nms threshold is ', prob)
+            eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
 
 
 
