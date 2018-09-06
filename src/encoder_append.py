@@ -32,6 +32,7 @@ DATA_DIR = os.path.join(ROOT_DIR, 'aug')
 TENSORBOARD_DIR = os.path.join(ROOT_DIR, 'tensorboard_logs')
 CHECKPOINT_DIR = os.path.join(ROOT_DIR, 'checkpoint')
 WEIGHTS_DIR = os.path.join(ROOT_DIR, 'model_weights')
+JSON_DIR = os.path.join(ROOT_DIR, 'json')
 
 
 def _image_normalization(image, preprocss_num):
@@ -754,101 +755,41 @@ if __name__ == '__main__':
     print('batch size is :', BATCH_SIZE)
     if Config.gpu_count != 1:
         multi_gpu_fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
-        for i, epi_weight in enumerate(hyper_para[5]):
-            for j, fib_weight in enumerate(hyper_para[6]):
-                for x, inf_weight in enumerate(hyper_para[7]):
-                    for v, other_weight in enumerate(hyper_para[8]):
-                        hyper = '{}_epi:{}_fib:{}_inf:{}_other:{}_lr:0.01'.format('cls_multi_celld',
-                                                                                     epi_weight, fib_weight,
-                                                                                     inf_weight, other_weight)
+    for i, epi_weight in enumerate(hyper_para[5]):
+        for j, fib_weight in enumerate(hyper_para[6]):
+            for x, inf_weight in enumerate(hyper_para[7]):
+                for v, other_weight in enumerate(hyper_para[8]):
+                    hyper = '{}_epi:{}_fib:{}_inf:{}_other:{}_lr:0.01'.format('cls_multi_celld',
+                                                                                 epi_weight, fib_weight,
+                                                                                 inf_weight, other_weight)
 
-                        tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
-                        timer = TimerCallback()
-                        print(hyper)
-                        print()
-                        model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
-                        cls_loss = np.array([0.5, i, j, x, v])
-                        if not os.path.exists(model_weights_saver):
-                            fcn_detnet_model = cls_focal_compile(nn=multi_gpu_fcn_detnet,cls_loss_weight=cls_loss, optimizer=optimizer)
-                            print('{} gpu fcn36 focal detection is training'.format(Config.gpu_count))
-
-                            #list_callback = callback_preparation(fcn_detnet, hyper)
-                            #list_callback.append(LearningRateScheduler(lr_scheduler))
-                            score = Score()
-                            #score.set_model(fcn_detnet)
-                            #list_callback.append(Score)
-                            fcn_detnet_model.fit_generator(generator(data[0],
-                                                                     data[4],
-                                                                     batch_size=BATCH_SIZE),
-                                                           epochs=EPOCHS,
-                                                           steps_per_epoch=STEP_PER_EPOCH,
-                                                           validation_data=generator(
-                                                               data[2], data[5], batch_size=BATCH_SIZE),
-                                                           validation_steps=3,
-                                                           callbacks=[timer, tensorboard_callback, earlystop_callback,
-                                                                      LearningRateScheduler(lr_scheduler)])
-                            model_json = fcn_detnet.to_json()
-                            with open('json_' + hyper + '.json', 'w') as json_file:
-                                json_file.write(model_json)
-                            fcn_detnet.save_weights(model_weights_saver)
-                            print(hyper + 'has been saved')
-    else:
-        print('------------------------------------')
-        print('This model is using {}'.format(Config.backbone))
-        print()
-        hyper_para = fcn_tune_loss_weight()
-        BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
-        print('batch size is :', BATCH_SIZE)
-        EPOCHS = Config.epoch
-
-        data = data_prepare(print_input_shape=True, print_image_shape=True)
-        optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
-        STEP_PER_EPOCH = int(len(data[0]) / BATCH_SIZE)
-
-        for j, fkg_weight in enumerate(hyper_para[1]):
-            for k, bkg_weight in enumerate(hyper_para[3]):
-                hyper = '{}_loss:{}_det:{}_fkg:{}_bkg:{}_lr:0.01'.format('multi_fcn36', 'fd',
-                                                                         Config.det_weight,
-                                                                         fkg_weight,
-                                                                         bkg_weight)  # _l2:{}_bkg:{}'.format()
-                tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
-                timer = TimerCallback()
-                print(hyper)
-                print()
-                model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
-
-                if not os.path.exists(model_weights_saver):
-                    det_weight2 = 1.0 - Config.det_weight
+                    tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
+                    timer = TimerCallback()
+                    print(hyper)
                     print()
-                    print('........the det_weight2 is : ', det_weight2)
-                    print()
-                    fcn_detnet_model = fcn_detnet_focal_model_compile(nn=fcn_detnet,
-                                                                      summary=Config.summary,
-                                                                      det_loss_weight=np.array(
-                                                                          [Config.det_weight, det_weight2]),
-                                                                      optimizer=optimizer,
-                                                                      fkg_smooth_factor=fkg_weight,
-                                                                      bkg_smooth_factor=bkg_weight)
-                    print('{} gpu fcn36 focal detection is training'.format(Config.gpu_count))
+                    model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
+                    cls_loss = np.array([0.5, i, j, x, v])
+                    if not os.path.exists(model_weights_saver):
+                        fcn_detnet_model = cls_focal_compile(nn=multi_gpu_fcn_detnet,cls_loss_weight=cls_loss, optimizer=optimizer)
+                        print('{} gpu fcn36 focal detection is training'.format(Config.gpu_count))
 
-                    # list_callback = callback_preparation(fcn_detnet, hyper)
-                    # list_callback.append(LearningRateScheduler(lr_scheduler))
-                    score = Score()
-                    # score.set_model(fcn_detnet)
-                    # list_callback.append(Score)
-
-                    fcn_detnet_model.fit_generator(generator(data[0],
-                                                             data[1],
-                                                             batch_size=BATCH_SIZE),
-                                                   epochs=EPOCHS,
-                                                   steps_per_epoch=STEP_PER_EPOCH,
-                                                   validation_data=generator(
-                                                       data[2], data[3], batch_size=BATCH_SIZE),
-                                                   validation_steps=3,
-                                                   callbacks=[timer, tensorboard_callback, earlystop_callback,
-                                                              LearningRateScheduler(lr_scheduler)])
-                    model_json = fcn_detnet.to_json()
-                    with open('json_' + hyper + '.json', 'w') as json_file:
-                        json_file.write(model_json)
-                    fcn_detnet.save_weights(model_weights_saver)
-                    print(hyper + 'has been saved')
+                        #list_callback = callback_preparation(fcn_detnet, hyper)
+                        #list_callback.append(LearningRateScheduler(lr_scheduler))
+                        score = Score()
+                        #score.set_model(fcn_detnet)
+                        #list_callback.append(Score)
+                        fcn_detnet_model.fit_generator(generator(data[0],
+                                                                 data[4],
+                                                                 batch_size=BATCH_SIZE),
+                                                       epochs=EPOCHS,
+                                                       steps_per_epoch=STEP_PER_EPOCH,
+                                                       validation_data=generator(
+                                                           data[2], data[5], batch_size=BATCH_SIZE),
+                                                       validation_steps=3,
+                                                       callbacks=[timer, tensorboard_callback, earlystop_callback,
+                                                                  LearningRateScheduler(lr_scheduler)])
+                        model_json = fcn_detnet.to_json()
+                        with open(os.path.join(JSON_DIR, hyper + '.json'), 'w') as json_file:
+                            json_file.write(model_json)
+                        fcn_detnet.save_weights(model_weights_saver)
+                        print(hyper + 'has been saved')

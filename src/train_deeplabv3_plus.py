@@ -192,10 +192,7 @@ if __name__ == '__main__':
 
     data = data_prepare(print_input_shape=True, print_image_shape=True)
     #optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
-    if Config.opt == 'sgd':
-        optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
-    elif Config.opt == 'adagrad':
-        optimizer = Adagrad(lr=0.01)
+    optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
     STEP_PER_EPOCH = int(len(data[0])/BATCH_SIZE)
 
     #for k, bkg_weight in enumerate(hyper_para[3]):
