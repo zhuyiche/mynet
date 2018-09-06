@@ -14,6 +14,14 @@ from PIL import ImageEnhance
 ROOT_DIR = os.getcwd()
 if ROOT_DIR.endswith('src'):
     ROOT_DIR = os.path.dirname(ROOT_DIR)
+<<<<<<< HEAD
+=======
+
+WEIGHT_DIR = os.path.join(ROOT_DIR, 'model_weights')
+CRC_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28')
+DETECT_DIR = os.path.join(CRC_DIR, 'Detection')
+CLS_DIR = os.path.join(CRC_DIR, 'Classification')
+>>>>>>> dd5288216b7e63e6080c638001eb275d2c0860e6
 
 
 def _isArrayLike(obj):
@@ -224,7 +232,7 @@ def train_test_split(data_path, notation_type, new_folder = 'cls_and_det',
             img.save(os.path.join(new, 'img{}_original.bmp'.format(order)))
             
             if 'detection' in store_name:
-                mask = _create_binary_masks_ellipse(mat_content, notation_type=notation_type, usage='Detection')
+                mask = _create_binary_masks_ellipse(mat_content, notation_type=notation_type, usage='Detection', colors=1)
                 mask.save('{}.bmp'.format(store_name))
                 verify_img = _drawdots_on_origin_image(mat_content, notation_type=notation_type,usage='Detection', img = img)
                 verify_img.save('{}/img{}_verify_det.bmp'.format(new, order))
@@ -292,7 +300,7 @@ def _draw_points(dots, img, color, notation_type, radius = 3):
                 canvas.ellipse((x0, y0, x1, y1), fill=color)
 
 
-def _create_binary_masks_ellipse(mats, usage, notation_type, color=[1, 2, 3, 4]):
+def _create_binary_masks_ellipse(mats, usage, notation_type, colors):
     """
     create binary mask using loaded data
     :param mats: points, mat format
@@ -305,9 +313,9 @@ def _create_binary_masks_ellipse(mats, usage, notation_type, color=[1, 2, 3, 4])
         for i, mat in enumerate(mats):
             mat_content = mat['detection']
             if notation_type == 'ellipse':
-                _draw_points(mat_content, mask, notation_type=notation_type, color=color[i])
+                _draw_points(mat_content, mask, notation_type=notation_type, color=colors)
             elif notation_type == 'point':
-                _draw_points(mat_content, mask, color=color[i], notation_type=notation_type)
+                _draw_points(mat_content, mask, color=colors, notation_type=notation_type)
     elif usage == 'Detection':
         mat_content = mats['detection']
         if notation_type == 'ellipse':
@@ -342,16 +350,10 @@ def create_binary_masks(mat):
     mask = Image.new('L', (500, 500), 0)
     ImageDraw.Draw(mask).polygon(polygon, outline=1, fill=1)
     return mask
-    #cv2.imshow('img', np.array(mask))
-    #cv2.waitKey(3000)
-    #cv2.destroyAllWindows()
-    #
-   # mask.save('/home/yichen/Desktop/sfcn-opi-yichen/CRCHistoPhenotypes_2016_04_28/cls_and_det/validation/img4/img4_mask.png')
-    #print(mask)
-   # return mask
 
 
-def img_test(i, type):
+
+def img_test(p, i, type):
     """
     visiualize certain image by showing all corresponding images.
     :param i: which image
@@ -375,95 +377,6 @@ def img_test(i, type):
     contrast2.enhance(20).show(imgc)
 
 
-def load_data(data_path, type, det=True, cls=False, reshape_size=None):
-    path = os.path.join(data_path, type)  # cls_and_det/train
-    imgs, det_masks, cls_masks = [], [], []
-    for i, file in enumerate(os.listdir(path)):
-        for j, img_file in enumerate(os.listdir(os.path.join(path, file))):
-            if 'original.bmp' in img_file:
-                img_path = os.path.join(path, file, img_file)
-                img = cv2.imread(img_path)
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                if reshape_size is not None:
-                    img = cv2.resize(img, reshape_size)
-                img = _image_normalization(img)
-                imgs.append(img)
-            elif 'detection.bmp' in img_file and det == True:
-                det_mask_path = os.path.join(path, file, img_file)
-                #det_mask = skimage.io.imread(det_mask_path, True).astype(np.bool)
-                det_mask = cv2.imread(det_mask_path, 0)
-                if reshape_size is not None:
-                    det_mask = cv2.resize(det_mask, reshape_size)
-                det_masks.append(det_mask)
-            elif 'classification.bmp' in img_file and cls == True:
-                if cls == True:
-                    cls_mask_path = os.path.join(path, file, img_file)
-                    cls_mask = cv2.imread(cls_mask_path, 0)
-                    if reshape_size != None:
-                        cls_mask = cv2.resize(cls_mask, reshape_size)
-                    cls_masks.append(cls_mask)
-    return np.array(imgs), np.array(det_masks), np.array(cls_masks)
-
-
-def _image_normalization(image):
-    img = image / 255.
-    img -= np.mean(img, keepdims=True)
-    img /= (np.std(img, keepdims=True) + 1e-7)
-    return img
-
-
-class DataGenerator:
-    def __init__(self, features, labels):
-        self.features = features
-        self.labels = labels
-
-    #@staticmethod
-    #def generator_without_augmentation():
-
-
-def get_metrics(gt, pred, r=3):
-    # calculate precise, recall and f1 score
-    gt = np.array(gt).astype('int')
-    if pred == []:
-        if gt.shape[0] == 0:
-            return 1, 1, 1
-        else:
-            return 0, 0, 0
-
-
-    pred = np.array(pred).astype('int')
-
-    temp = np.concatenate([gt, pred])
-
-    if temp.shape[0] != 0:
-        x_max = np.max(temp[:, 0]) + 1
-        y_max = np.max(temp[:, 1]) + 1
-
-        gt_map = np.zeros((y_max, x_max), dtype='int')
-        for i in range(gt.shape[0]):
-            x = gt[i, 0]
-            y = gt[i, 1]
-            x1 = max(0, x-r)
-            y1 = max(0, y-r)
-            x2 = min(x_max, x+r)
-            y2 = min(y_max, y+r)
-            gt_map[y1:y2,x1:x2] = 1
-
-        pred_map = np.zeros((y_max, x_max), dtype='int')
-        for i in range(pred.shape[0]):
-            x = pred[i, 0]
-            y = pred[i, 1]
-            pred_map[y, x] = 1
-
-        result_map = gt_map * pred_map
-        tp = result_map.sum()
-
-        precision = tp / (pred.shape[0])# + epsilon)
-        recall = tp / (gt.shape[0])# + epsilon)
-        f1_score = 2 * (precision * recall / (precision + recall))# + epsilon))
-
-        return precision, recall, f1_score
-
 
 def mask_to_corrdinates(mask):
     a = np.where(mask == 1)
@@ -474,12 +387,88 @@ def mask_to_corrdinates(mask):
     print(x)
 
 
+def _create_cls_mask(parent_folder, mats):
+    """
+    create binary mask using loaded data
+    :param mats: points, mat format
+    :param usage: Detection or Classfifcation
+    :param notation_type: For now, either ellipse or point
+    :return: mask
+    """
+    mask = Image.new('L', (500, 500), 0)
+    #mats is a list of mat path contains four mats path
+    for i, mat in enumerate(mats):
+        mat_path = os.path.join(parent_folder, mat)
+        mat_content = loadmat(mat_path)['detection']
+        if 'epithelial.mat' in mat:
+            draw_points(mat_content, mask, 1)
+        if 'fibroblast.mat' in img_file:
+            draw_points(mat_content, mask, 2)
+        if 'inflammatory.mat' in img_file:
+            draw_points(mat_content, mask, 3)
+        if 'others.mat' in img_file:
+            draw_points(mat_content, mask, 4)
+    return mask
+
+
+def draw_points(dots, img, color, radius=3):
+    if dots is not None:
+        canvas = ImageDraw.Draw(img)
+        for i in range(len(dots)):
+            x0 = dots[i, 0] - radius
+            y0 = dots[i, 1] - radius
+            x1 = dots[i, 0] + radius
+            y1 = dots[i, 1] + radius
+            canvas.ellipse((x0, y0, x1, y1), fill=color)
+
 
 if __name__ == '__main__':
     import keras.backend as K
-    import tensorflow as tf
-    print(K.get_session().list_devices())
-'''
+
+    for file in os.listdir(CLS_DIR):
+        file_path = os.path.join(CLS_DIR, file)
+        mats_list = []
+        #print(file)
+        for img_file in os.listdir(file_path):
+            if '.mat' in img_file:
+                mats_list.append(os.path.join(file_path, img_file))
+        image_mask = _create_cls_mask(file_path, mats_list)
+        if '54' in file:
+            print(file)
+        image_mask.save(os.path.join(file_path, str(file)+ '_classification.bmp'))
+
+    train_cls_dir = os.path.join(CRC_DIR, 'cls_and_det', 'train')
+    test_cls_dir = os.path.join(CRC_DIR, 'cls_and_det', 'test')
+    valid_cls_dir = os.path.join(CRC_DIR, 'cls_and_det', 'validation')
+    for files in os.listdir(train_cls_dir):
+        cls_dir_file = os.path.join(train_cls_dir, files)
+        CLS_DIR_FILE = os.path.join(CLS_DIR, files)
+        for img_file in os.listdir(cls_dir_file):
+            cls_img_file = os.path.join(cls_dir_file, str(files)+'_classification.bmp')
+            CLS_IMG_FILE = os.path.join(CLS_DIR_FILE, str(files)+'_classification.bmp')
+            if os.path.exists(cls_img_file):
+                os.remove(cls_img_file)
+            shutil.move(CLS_IMG_FILE, cls_img_file)
+    for files in os.listdir(test_cls_dir):
+        cls_dir_file = os.path.join(test_cls_dir, files)
+        CLS_DIR_FILE = os.path.join(CLS_DIR, files)
+        for img_file in os.listdir(cls_dir_file):
+            cls_img_file = os.path.join(cls_dir_file, str(files) + '_classification.bmp')
+            CLS_IMG_FILE = os.path.join(CLS_DIR_FILE, str(files) + '_classification.bmp')
+            if os.path.exists(cls_img_file):
+                os.remove(cls_img_file)
+            shutil.move(CLS_IMG_FILE, cls_img_file)
+
+    for files in os.listdir(valid_cls_dir):
+        cls_dir_file = os.path.join(valid_cls_dir, files)
+        CLS_DIR_FILE = os.path.join(CLS_DIR, files)
+        for img_file in os.listdir(cls_dir_file):
+            cls_img_file = os.path.join(cls_dir_file, str(files) + '_classification.bmp')
+            CLS_IMG_FILE = os.path.join(CLS_DIR_FILE, str(files) + '_classification.bmp')
+            if os.path.exists(cls_img_file):
+                os.remove(cls_img_file)
+            shutil.move(CLS_IMG_FILE, cls_img_file)
+        """
     p = '/home/yichen/Desktop/sfcn-opi-yichen/CRCHistoPhenotypes_2016_04_28'
     from PIL import Image, ImageEnhance
     load_mask = Image.open('/home/yichen/Desktop/sfcn-opi-yichen/CRCHistoPhenotypes_2016_04_28/cls_and_det/train/img1/img1_detection.bmp')
@@ -497,4 +486,4 @@ if __name__ == '__main__':
     train_test_split(p, notation_type='point')
     from PIL import Image, ImageEnhance
     i = 1
-    #img_test(i, 'test')'''
+    #img_test(i, 'test')"""
