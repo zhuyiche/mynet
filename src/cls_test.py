@@ -130,7 +130,7 @@ def get_metrics(gt, pred, r=6):
 
         precision = min(tp / (pred.shape[0] + epsilon),1)
         recall = min(tp / (gt.shape[0] + epsilon),1)
-        f1_score = 2 * (precision * recall / (precision + recall + epsilon))
+        f1_score = 2 * (precision * recall) / (precision + recall + epsilon)
         gt_num = gt.shape[0]
         pred_num = pred.shape[0]
         return precision, recall, f1_score, tp, gt_num, pred_num
@@ -165,7 +165,7 @@ def eval_single_img(model, img_dir, print_img=True,
         plt.show()
     #print(output.shape)
 
-    epi_p, epi_r, epi_f1, epi_tp, epi_gt, epi_prednum = cls_score_single_img(output1, img_dir=img_dir, type='epi',
+    epi_p, epi_r, epi_f1, epi_tp, epi_gt, epi_prednum = cls_score_single_img(output3, img_dir=img_dir, type='epi',
                                                                              prob_threshold=prob_threshold,
                                                                              print_single_result=print_single_result)
     fib_p, fib_r, fib_f1, fib_tp, fib_gt, fib_prednum = cls_score_single_img(output2, img_dir=img_dir,
@@ -177,7 +177,7 @@ def eval_single_img(model, img_dir, print_img=True,
     other_p, other_r, other_f1, other_tp, other_gt, other_prednum = cls_score_single_img(output4, img_dir=img_dir,
                                                                              prob_threshold=prob_threshold, type='other',
                                                                              print_single_result=print_single_result)
-    print('epi_f1: {}, fib_f1: {}, inf_f1: {}, other_f1: {}'.format(epi_f1, fib_f1, inf_f1, other_f1))
+    print('epi_p: {}, epi_r: {}, epi_f1: {}, fib_f1: {}, inf_f1: {}, other_f1: {}'.format(epi_p, epi_r, epi_f1, fib_f1, inf_f1, other_f1))
     total_gt = epi_gt + fib_gt + inf_gt + other_gt
     total_tp = epi_tp + fib_tp + inf_tp + inf_tp
     total_prednum = epi_prednum + fib_prednum + inf_prednum + inf_prednum
