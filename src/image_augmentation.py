@@ -341,7 +341,7 @@ if __name__ == '__main__':
     parser.add_argument("--crop", default=True, type=bool)
     args = parser.parse_args()
     ifcrop = args.crop
-    rand_num = 25
+    rand_num = 11
     channel_num = 2
     zoom_num = 2
     shear_num = 2

@@ -15,8 +15,9 @@ ROOT_DIR = os.getcwd()
 if ROOT_DIR.endswith('src'):
     ROOT_DIR = os.path.dirname(ROOT_DIR)
 
-WEIGHT_DIR = os.path.join(ROOT_DIR, 'model_weights')
+WEIGHT_DIR = os.path.join(ROOT_DIR, 'model_weights', 'det_modelweights')
 IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'test')
+JSON_DIR = os.path.join(ROOT_DIR, 'json')
 #IMG_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det', 'test')
 epsilon = 1e-6
 
@@ -146,28 +147,11 @@ def eval_single_img(model, img_dir, print_img=True,
     img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
     output = model.predict(img)[0]
     output = output[:, :, 1]
-    #cropped_img1 = img[0: 256, 0: 256, :]  # 1, 3
-    #cropped_img2 = img[256: 512, 0: 256, :]  # 2, 4
-    #cropped_img3 = img[0: 256, 256: 512, :]
-    #cropped_img4 = img[256: 512, 256: 512, :]
-    #print('crop shape: ', cropped_img1.shape)
-    #plt.imshow(cropped_img1)
-    #plt.colorbar()
-    #plt.show()
     def _predic_crop_image(img, print_img=print_img):
         img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
         output = model.predict(img)[0]
         output = output[:, :, 1]
         return output
-
-    #crop_output1 = _predic_crop_image(cropped_img1)
-    #crop_output2 = _predic_crop_image(cropped_img2)
-    #crop_output3 = _predic_crop_image(cropped_img3)
-    #crop_output4 = _predic_crop_image(cropped_img4)
-
-   # output_up = np.concatenate((crop_output1, crop_output3), axis=1)
-   # output_down = np.concatenate((crop_output2, crop_output4), axis=1)
-    #output = np.concatenate((output_up, output_down), axis=0)
 
     if print_img:
         plt.imshow(output)
@@ -245,9 +229,6 @@ def test_11(model):
 
 
 if __name__ == '__main__':
-    #model = Fcn_det().fcn36_deconv_backbone()
-    #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
-    #test_11(model)
     import time
     #os.environ["CUDA_VISIBLE_DEVICES"] = str(Config.gpu1)
     start = time.time()
@@ -256,7 +237,11 @@ if __name__ == '__main__':
     model = Fcn_det().relufirst_fcn36_deconv_backbone()
     #eval_weights_testset(WEIGHT_DIR)
     for weight in os.listdir(WEIGHT_DIR):
-        #if 'loss:fd_relufirst_det:' + str(Config.det_weight) in weight:
+        weight_prefix, name = weight.split('.')
+        for json_model in os.listdir(JSON_DIR):
+            if weight_prefix in json_model:
+                print('s')
+                #model
         print(weight)
         weightp = os.path.join(WEIGHT_DIR, weight)
         model.load_weights(weightp)

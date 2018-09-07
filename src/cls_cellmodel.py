@@ -10,7 +10,6 @@ from keras.optimizers import SGD
 from keras.callbacks import EarlyStopping, LearningRateScheduler, \
     TensorBoard,ModelCheckpoint, ReduceLROnPlateau, Callback
 from keras.regularizers import l2
-from loss import detection_double_focal_loss_K
 from config import Config
 from tensorflow.python.client import device_lib
 #from encoder_decoder_object_det import Conv3l2
@@ -18,6 +17,7 @@ from util import *
 from encoder_decoder_object_det import callback_preparation, crop_shape_generator_with_heavy_aug, TimerCallback
 import scipy.misc as misc
 from eval import mymetrics
+from loss import cls_cross_entropy
 
 weight_decay = 0.005
 epsilon = 1e-7
@@ -30,9 +30,9 @@ DATA_DIR = os.path.join(ROOT_DIR, 'aug')
 #CROP_DATA_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det')
 TENSORBOARD_DIR = os.path.join(ROOT_DIR, 'tensorboard_logs')
 CHECKPOINT_DIR = os.path.join(ROOT_DIR, 'checkpoint')
-#WEIGHTS_DIR = os.path.join(ROOT_DIR, 'model_weights')
-WEIGHTS_DIR = os.path.join(ROOT_DIR, 'model_weights', 'det_modelweights')
+WEIGHTS_DIR = os.path.join(ROOT_DIR, 'model_weights', 'cls_modelweights')
 JSON_DIR = os.path.join(ROOT_DIR, 'json')
+
 
 def _image_normalization(image, preprocss_num):
     """
@@ -133,7 +133,7 @@ def identity_block_2(f, stage, block, inputs, l2_weight, trainable=True):
     """
     x_shortcut = inputs
 
-    x = Conv3l2(filters=f, kernel_regularizer_weight=l2_weight,
+    x = Conv2D(filters=f, kernel_size=(3,3), padding='same',
                 name=str(stage) + '_' + str(block) + '_idblock_conv_1',
                 trainable=trainable)(inputs)
     x = BatchNormalization(name=str(stage) + '_' + str(block) + '_idblock_BN_1',
@@ -141,7 +141,7 @@ def identity_block_2(f, stage, block, inputs, l2_weight, trainable=True):
     x = Activation('relu', name=str(stage) + '_' + str(block) + '_idblock_act_1',
                    trainable=trainable)(x)
 
-    x = Conv3l2(filters=f, kernel_regularizer_weight=l2_weight,
+    x = Conv2D(filters=f, kernel_size=(3,3), padding='same',
                 name=str(stage) + '_' + str(block) + '_idblock_conv_2')(x)
     x = BatchNormalization(name=str(stage) + '_' + str(block) + '_idblock_BN_2',
                            trainable=trainable)(x)
@@ -158,14 +158,14 @@ def convolution_block_2(f, stage, block, inputs, l2_weight, trainable=True):
     :param stage: stage of residual blocks
     :param block: ith module
     """
-    x = Conv3l2(filters=f, strides=(2, 2), kernel_regularizer_weight=l2_weight,
+    x = Conv2D(filters=f, strides=(2, 2), kernel_size=(3,3), padding='same',
                 name=str(stage) + str(block) + '_' + '_convblock_conv_1',
                 trainable=trainable)(inputs)
     x = BatchNormalization(name=str(stage) + '_' + str(block) + '_convblock_BN_1',
                            trainable=trainable)(x)
     x = Activation('relu', name=str(stage) + '_' + str(block) + '_convblock_act_1',
                    trainable=trainable)(x)
-    x = Conv3l2(filters=f, kernel_regularizer_weight=l2_weight,
+    x = Conv2D(filters=f, kernel_size=(3,3), padding='same',
                 name=str(stage) + '_' + str(block) + '_convblock_conv_2',
                 trainable=trainable)(x)
     x = BatchNormalization(name=str(stage) + '_' + str(block) + '_convblock_BN_2',
@@ -173,7 +173,6 @@ def convolution_block_2(f, stage, block, inputs, l2_weight, trainable=True):
 
 
     x_shortcut = Conv2D(f, kernel_size=(1, 1), strides=(2, 2), padding='same',
-                        kernel_regularizer=keras.regularizers.l2(l2_weight),
                         name=str(stage) + '_' + str(block) + '_convblock_shortcut_conv',
                         trainable=trainable)(inputs)
     x_shortcut = BatchNormalization(name=str(stage) + '_' + str(block) + '_convblock_shortcut_BN_1',
@@ -184,23 +183,22 @@ def convolution_block_2(f, stage, block, inputs, l2_weight, trainable=True):
                                     trainable=trainable)(x_add)
     return x_convblock_output
 
-def dilated_bottleneck(inputs, stage, block, l2_weight):
+def dilated_bottleneck(inputs, stage, block):
     """
     Dilated block without 1x1 convolution projection, structure like res-id-block
     """
     x_shortcut = inputs
-    x = Conv2D(filters=256, kernel_size=(1,1), padding='same', kernel_regularizer=l2(l2_weight),
+    x = Conv2D(filters=256, kernel_size=(1,1), padding='same',
                name=str(stage) + '_' + str(block) + '_1' + '_dilated_block_first1x1')(inputs)
     x = BatchNormalization(name=str(stage) + '_' + str(block) + '_1'+ '_dilated_block_firstBN')(x)
     x = Activation('relu', name=str(stage) + '_' + str(block) + '_1'+ '_dilated_block_firstRELU')(x)
 
     x_dilated = Conv2D(filters=256, kernel_size=(3,3), padding='same',
-                       name=str(stage) + '_' + str(block) + '_2' + '_dilated_block_dilatedconv',
-                       kernel_regularizer=l2(l2_weight), dilation_rate=(2,2))(x)
+                       name=str(stage) + '_' + str(block) + '_2' + '_dilated_block_dilatedconv', dilation_rate=(2,2))(x)
     x_dilated = BatchNormalization(name=str(stage) + '_'+ str(block) + '_2'+ '_dilated_block_dilatedBN')(x_dilated)
     x_dilated = Activation('relu',name=str(stage) +'_'+ str(block) + '_2'+ '_dilated_block_dilatedRELU')(x_dilated)
 
-    x_more = Conv2D(filters=256, kernel_size=(1,1), padding='same', kernel_regularizer=l2(l2_weight),
+    x_more = Conv2D(filters=256, kernel_size=(1,1), padding='same',
                     name=str(stage) + '_'+ str(block) + '_3'+ '_dilated_block_second1x1')(x_dilated)
     x_more = BatchNormalization(name=str(stage) + '_' + str(block) + '_3'+ '_dilated_block_secondBN')(x_more)
     x_more = Activation('relu', name=str(stage) + str(block) + '_3' +'_dilated_block_secondRELU')(x_more)
@@ -208,28 +206,27 @@ def dilated_bottleneck(inputs, stage, block, l2_weight):
     x_dilated_output = Activation('relu', name=str(stage)+'_' + str(block) +'_dilated_block_relu')(x_add)
     return x_dilated_output
 
-def dilated_with_projection(inputs, stage, l2_weight):
+def dilated_with_projection(inputs, stage):
     """
     Dilated block with 1x1 convolution projection for the shortcut, structure like res-conv-block
     """
     x_shortcut = inputs
-    x = Conv2D(filters=256, kernel_size=(1, 1), padding='same', kernel_regularizer=l2(l2_weight),
+    x = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
                name=str(stage) + '_1'+ '_dilated_project_first1x1')(inputs)
     x = BatchNormalization(name=str(stage) + '_1'+ '_dilated_project_firstBN')(x)
     x = Activation('relu', name=str(stage) + '_1''_dilated_project_firstRELU')(x)
 
     x_dilated = Conv2D(filters=256, kernel_size=(3, 3), padding='same',
-                       name=str(stage) + '_2'+'_dilated_project_dilatedconv',
-                       kernel_regularizer=l2(l2_weight), dilation_rate=(2, 2))(x)
+                       name=str(stage) + '_2'+'_dilated_project_dilatedconv', dilation_rate=(2, 2))(x)
     x_dilated = BatchNormalization(name=str(stage)+ '_2' + '_dilated_project_DBN')(x_dilated)
     x_dilated = Activation('relu', name=str(stage) + '_2'+ '_dialated_project_DRELU')(x_dilated)
 
-    x_more = Conv2D(filters=256, kernel_size=(1, 1), padding='same', kernel_regularizer=l2(l2_weight),
+    x_more = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
                     name=str(stage) + '_3'+ '_dilated_project_second1x1')(x_dilated)
     x_more = BatchNormalization(name=str(stage) + '_3'+ '_dilated_project_secondBN')(x_more)
     x_more = Activation('relu',name=str(stage) + '_3'+ '_dilated_project_secondRELU')(x_more)
 
-    x_shortcut_project = Conv2D(filters=256, kernel_size=(1, 1), padding='same', kernel_regularizer=l2(l2_weight),
+    x_shortcut_project = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
                name=str(stage) + '_dialted_project_shortcutConv')(x_shortcut)
     x_shortcut_project = BatchNormalization(name=str(stage) + '_dialted_project_shortcutBN')(x_shortcut_project)
 
@@ -326,29 +323,29 @@ def fcn_36(inputs, l2_weight, stages=[2, 3, 4, 5],filters=[32, 64, 128, 256], tr
     return x_id_28, x_id_38, x_id_48, x_id_58
 
 class Fcn_det:
-    def __init__(self, input_shape=(256, 256, 3), l2_weight=0.001):
+    def __init__(self, input_shape=(256, 256, 3)):
         # self.inputs = inputs
         self.input_shape = input_shape
-        self.l2_weight = l2_weight
+        l2_weight = 0.001
 
     def first_layer(self, inputs, l2_weight, trainable=True):
         """
         First convolution layer.
         """
         x = Conv3l2(filters=32, name='Conv_1',
-                    kernel_regularizer_weight=self.l2_weight,
+                    kernel_regularizer_weight=l2_weight,
                     trainable=trainable)(inputs)
         x = BatchNormalization(name='BN_1',trainable=trainable)(x)
         x = Activation('relu', name='act_1',trainable=trainable)(x)
         return x
+
     ####################################
     # FCN 36 as in paper sfcn-opi
     ####################################
-    def relufirst_fcn36_deconv_backbone(self):
+    def fcn36_deconv_backbone(self, l2_weight=0.001):
         #######################################
         # Extra branch for every pyramid feature
         #######################################
-        l2_weight = self.l2_weight
         def _feature_concat_deconv_branch(C7=None, C6=None, C5=None, C4=None, C3=None):
             """
 
@@ -372,7 +369,6 @@ class Fcn_det:
                 x_deconv256 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
                                               filters=256, strides=(2, 2), name=type + '_deconv_256_Conv',
                                              kernel_regularizer=l2(l2_weight))(x_deconv128)
-                x_deconv256 = BatchNormalization()(x_deconv256)
                 return x_deconv256
 
             # in detnet setting, C6.shape == C5.shape == C4.shape, in fcn27 this is 1/4 of origin image
@@ -387,11 +383,116 @@ class Fcn_det:
             C4_deconv_256 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
                                             filters=128, strides=(2, 2), name='C4_deconv_256_Conv',
                                              kernel_regularizer=l2(l2_weight))(C4_deconv_128)
-            C4_deconv_256 = BatchNormalization()(C4_deconv_256)
+
 
             C3_deconv_256 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
                                             filters=64, strides=(2, 2), name='C3_deconv_256_Conv',
                                              kernel_regularizer=l2(l2_weight))(C3)
+
+            C23456_concat = Concatenate()([C7_deconv, C6_deconv, C5_deconv, C4_deconv_256, C3_deconv_256])
+
+            return C23456_concat
+
+        # tf.reset_default_graph()
+        img_input = Input(self.input_shape)
+        #########
+        # Adapted first stage
+        #########
+        x_stage1 = self.first_layer(inputs=img_input, l2_weight=l2_weight)
+        x_stage2, x_stage3, x_stage4, x_stage5 = fcn_36(x_stage1, l2_weight=l2_weight)
+        # stage3 is 1/2 size
+        #########
+        # following layer proposed by DetNet
+        #########
+        x_stage6_B = dilated_with_projection(x_stage5, stage=6)
+        x_stage6_A1 = dilated_bottleneck(x_stage6_B, stage=6, block=1)
+        x_stage6 = dilated_bottleneck(x_stage6_A1, stage=6, block=2)
+        x_stage7_B = dilated_with_projection(x_stage6, stage=7)
+        x_stage7_A1 = dilated_bottleneck(x_stage7_B, stage=7, block=1)
+        x_stage7 = dilated_bottleneck(x_stage7_A1, stage=7, block=2)
+
+        ########
+        # 1x1 convolutnion part
+        ########
+        #x_stage2_1x1 = Conv2D(filters=32, kernel_size=(1, 1), padding='same', name='stage2_1x1_conv')(x_stage2)
+        x_stage3_1x1 = Conv2D(filters=64, kernel_size=(1, 1), padding='same',
+                              name='stage3_1x1_conv',
+                              kernel_regularizer=l2(l2_weight))(x_stage3)
+        x_stage4_1x1 = Conv2D(filters=128, kernel_size=(1, 1), padding='same',
+                              name='stage4_1x1_conv',
+                              kernel_regularizer=l2(l2_weight))(x_stage4)
+        # stage5 is 1/8 size, same as 6 and 7
+        x_stage5_1x1 = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
+                              name='stage5_1x1_conv')(x_stage5)
+        x_stage6_1x1 = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
+                              name='stage6_1x1_conv')(x_stage6)
+        x_stage7_1x1 = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
+                              name='stage7_1x1_conv')(x_stage7)
+
+        stage_67 = Add(name='add_stage_6_7')([x_stage6_1x1, x_stage7_1x1])
+        stage_67 = stage_67
+        stage_567 = Add(name='add_stage_5_6_7')([x_stage5_1x1, stage_67])
+        stage_567_upsample = Conv2DTranspose(filters=128, kernel_size=(3, 3), strides=(2, 2),padding='same',
+                                             name='stage_567_upsample',
+                                             kernel_regularizer=l2(l2_weight))(stage_567)
+        stage_4567 = Add(name='add_stage_4_567')([stage_567_upsample, x_stage4_1x1])
+        stage_4567_upsample = Conv2DTranspose(filters=64, kernel_size=(3, 3), strides=(2, 2),
+                                              padding='same',
+                                              name='stage_4567_upsample')(stage_4567)
+        stage_34567 = Add(name='add_stage_3_4567')([stage_4567_upsample, x_stage3_1x1])  # filters = 64
+        #stage_34567_upsample = Conv2DTranspose(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', name='stage_34567_upsample')(stage_34567)
+        #stage_234567 = Add(name='add_stage_2_34567')([stage_34567_upsample, x_stage2_1x1])
+
+        x_feature_concat= _feature_concat_deconv_branch(C7=x_stage7_1x1, C6=stage_67, C5=stage_567,
+                                                        C4=stage_4567, C3=stage_34567)
+        x_feature_concat = Conv2D(kernel_size=(1,1), filters=5,padding='same',
+                                  name='cls_all_feature_concat')(x_feature_concat)
+        x_output = Activation('softmax', name='cls_final_Softmax')(x_feature_concat)
+        detnet_model = Model(inputs=img_input,
+                             outputs=x_output)
+        return detnet_model
+
+    def relufirst_fcn36_deconv_backbone(self, l2_weight=0.001):
+        #######################################
+        # Extra branch for every pyramid feature
+        #######################################
+        def _feature_concat_deconv_branch(C7=None, C6=None, C5=None, C4=None, C3=None):
+            """
+
+            :param features: input feature is from every feature pyramid layer,
+                             should've been already connect with 1x1 convolution layer.
+            """
+
+            def _32to256(input, type):
+                x_deconv64 = Conv2DTranspose(kernel_size=(3, 3),
+                                              filters=256, strides=(2, 2), name=type + '_deconv_64_Conv',
+                                             padding='same')(input)
+                x_deconv64 = BatchNormalization(name=type + '_deconv_64_BN')(x_deconv64)
+                x_deconv64 = Activation('relu', name=type + '_deconv_64_RELU')(x_deconv64)
+                x_deconv128 = Conv2DTranspose(kernel_size=(3, 3),
+                                              filters=256, strides=(2, 2), name=type + '_deconv_128_Conv',
+                                              padding='same')(x_deconv64)
+                x_deconv128 = BatchNormalization(name=type + '_deconv_128_BN')(x_deconv128)
+                x_deconv128 = Activation('relu', name=type + '_deconv_128_RELU')(x_deconv128)
+                x_deconv256 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
+                                              filters=256, strides=(2, 2), name=type + '_deconv_256_Conv')(x_deconv128)
+                x_deconv256 = BatchNormalization()(x_deconv256)
+                return x_deconv256
+
+            # in detnet setting, C6.shape == C5.shape == C4.shape, in fcn27 this is 1/4 of origin image
+            C7_deconv = _32to256(C7, 'C7')
+            C6_deconv = _32to256(C6, 'C6')
+            C5_deconv = _32to256(C5, 'C5')
+            C4_deconv_128 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
+                                            filters=128, strides=(2, 2), name='C4_deconv_128_Conv')(C4)
+            C4_deconv_128 = BatchNormalization(name='C4_deconv_128_BN')(C4_deconv_128)
+            C4_deconv_128 = Activation('relu', name='C4_deconv_128_RELU')(C4_deconv_128)
+            C4_deconv_256 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
+                                            filters=128, strides=(2, 2), name='C4_deconv_256_Conv')(C4_deconv_128)
+            C4_deconv_256 = BatchNormalization()(C4_deconv_256)
+
+            C3_deconv_256 = Conv2DTranspose(kernel_size=(3, 3), padding='same',
+                                            filters=64, strides=(2, 2), name='C3_deconv_256_Conv')(C3)
             C3_deconv_256 = BatchNormalization()(C3_deconv_256)
             C23456_concat = Concatenate()([C7_deconv, C6_deconv, C5_deconv, C4_deconv_256, C3_deconv_256])
 
@@ -408,17 +509,17 @@ class Fcn_det:
         #########
         # following layer proposed by DetNet
         #########
-        x_stage6_B = dilated_with_projection(x_stage5, stage=6, l2_weight=l2_weight)
-        x_stage6_A1 = dilated_bottleneck(x_stage6_B, stage=6, block=1, l2_weight=l2_weight)
-        x_stage6 = dilated_bottleneck(x_stage6_A1, stage=6, block=2, l2_weight=l2_weight)
-        x_stage7_B = dilated_with_projection(x_stage6, stage=7, l2_weight=l2_weight)
-        x_stage7_A1 = dilated_bottleneck(x_stage7_B, stage=7, block=1, l2_weight=l2_weight)
-        x_stage7 = dilated_bottleneck(x_stage7_A1, stage=7, block=2, l2_weight=l2_weight)
+        x_stage6_B = dilated_with_projection(x_stage5, stage=6)
+        x_stage6_A1 = dilated_bottleneck(x_stage6_B, stage=6, block=1)
+        x_stage6 = dilated_bottleneck(x_stage6_A1, stage=6, block=2)
+        x_stage7_B = dilated_with_projection(x_stage6, stage=7)
+        x_stage7_A1 = dilated_bottleneck(x_stage7_B, stage=7, block=1)
+        x_stage7 = dilated_bottleneck(x_stage7_A1, stage=7, block=2)
 
         ########
         # 1x1 convolutnion part
         ########
-        #x_stage2_1x1 = Conv2D(filters=32, kernel_size=(1, 1), padding='same', name='stage2_1x1_conv', kernel_regularizer=l2(l2_weight))(x_stage2)
+        #x_stage2_1x1 = Conv2D(filters=32, kernel_size=(1, 1), padding='same', name='stage2_1x1_conv')(x_stage2)
         x_stage3_1x1 = Conv2D(filters=64, kernel_size=(1, 1), padding='same',
                               name='stage3_1x1_conv',
                               kernel_regularizer=l2(l2_weight))(x_stage3)
@@ -427,21 +528,17 @@ class Fcn_det:
                               kernel_regularizer=l2(l2_weight))(x_stage4)
         # stage5 is 1/8 size, same as 6 and 7
         x_stage5_1x1 = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
-                              name='stage5_1x1_conv', kernel_regularizer=l2(l2_weight))(x_stage5)
+                              name='stage5_1x1_conv')(x_stage5)
         x_stage6_1x1 = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
-                              name='stage6_1x1_conv', kernel_regularizer=l2(l2_weight))(x_stage6)
+                              name='stage6_1x1_conv')(x_stage6)
         x_stage7_1x1 = Conv2D(filters=256, kernel_size=(1, 1), padding='same',
-                              name='stage7_1x1_conv', kernel_regularizer=l2(l2_weight))(x_stage7)
+                              name='stage7_1x1_conv')(x_stage7)
+
         x_stage7_1x1 = BatchNormalization(name='stage7_1x1_BN')(x_stage7_1x1)
-        #x_stage7_1x1 = Activation('relu')(x_stage7_1x1)
         x_stage6_1x1 = BatchNormalization(name='stage6_1x1_BN')(x_stage6_1x1)
-        #x_stage6_1x1 = Activation('relu')(x_stage6_1x1)
         x_stage5_1x1 = BatchNormalization(name='stage5_1x1_BN')(x_stage5_1x1)
-        #x_stage5_1x1 = Activation('relu')(x_stage5_1x1)
         x_stage4_1x1 = BatchNormalization(name='stage4_1x1_BN')(x_stage4_1x1)
-        #x_stage4_1x1 = Activation('relu')(x_stage4_1x1)
         x_stage3_1x1 = BatchNormalization(name='stage3_1x1_BN')(x_stage3_1x1)
-        #x_stage3_1x1 = Activation('relu')(x_stage3_1x1)
 
 
         stage_67 = Add(name='add_stage_6_7')([x_stage6_1x1, x_stage7_1x1])
@@ -462,21 +559,20 @@ class Fcn_det:
                                               kernel_regularizer=keras.regularizers.l2(l2_weight),
                                               name='stage_4567_upsample')(stage_4567)
         stage_4567_upsample = BatchNormalization()(stage_4567_upsample)
-        #stage_4567_upsample = Activation('relu')(stage_4567_upsample)
         stage_34567 = Add(name='add_stage_3_4567')([stage_4567_upsample, x_stage3_1x1])  # filters = 64
         stage_34567 = Activation('relu')(stage_34567)
-        #stage_34567_upsample = Conv2DTranspose(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', kernel_regularizer=l2(l2_weight), name='stage_34567_upsample')(stage_34567)
-        #stage_234567 = Add(name='add_stage_2_34567')([stage_34567_upsample, x_stage2_1x1])
 
-        x_feature_concat= _feature_concat_deconv_branch(C7=x_stage7_1x1, C6=stage_67, C5=stage_567,
+        x_feature_concat = _feature_concat_deconv_branch(C7=x_stage7_1x1, C6=stage_67, C5=stage_567,
                                                         C4=stage_4567, C3=stage_34567)
-        x_feature_concat = Conv2D(kernel_size=(1,1), filters=2, kernel_regularizer=l2(l2_weight),padding='same',
+        x_feature_concat = Conv2D(kernel_size=(1,1), filters=5,padding='same',
                                   name='all_feature_concat')(x_feature_concat)
         x_feature_concat = BatchNormalization()(x_feature_concat)
         x_output = Activation('softmax', name='Final_Softmax')(x_feature_concat)
         detnet_model = Model(inputs=img_input,
                              outputs=x_output)
         return detnet_model
+
+
 
 
 def fcn_tune_loss_weight():
@@ -492,7 +588,12 @@ def fcn_tune_loss_weight():
     bkg_smooth_factor = [0.5, 0.7, 0.9, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]
 
     ind_factor = [np.array([0.2, 0.8]),np.array([0.1, 0.9]), np.array([0.15, 0.85])]
-    return [det_weight, fkg_smooth_factor, l2_weight, bkg_smooth_factor, ind_factor]
+    smooth_factor1 = [0.8, 0.9, 1.0]
+    smooth_factor2 = [0.8, 0.9, 1.0, 1.1]
+    smooth_factor3 = [0.5, 0.6, 0.7, 0.8]
+    smooth_factor4 = [1.7, 1.8, 1.9, 2.0]
+    return [det_weight, fkg_smooth_factor, l2_weight, bkg_smooth_factor, ind_factor,
+            smooth_factor1, smooth_factor2, smooth_factor3, smooth_factor4]
 
 
 def data_prepare(print_image_shape=False, print_input_shape=False):
@@ -515,16 +616,18 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
 
     if print_image_shape:
         print('Image shape print below: ')
-        print('train_imgs: {}, train_det_masks: {}'.format(train_imgs.shape, train_det_masks.shape))
-        print('valid_imgs: {}, valid_det_masks: {}'.format(valid_imgs.shape, valid_det_masks.shape))
+        print('train_imgs: {}, train_det_masks: {}, train_cls_masks: {}'.format(train_imgs.shape, train_det_masks.shape, train_cls_masks.shape))
+        print('valid_imgs: {}, valid_det_masks: {}, valid_cls_masks: {}'.format(valid_imgs.shape, valid_det_masks.shape, valid_cls_masks.shape))
         print('test_imgs: {}, test_det_masks: {}'.format(test_imgs.shape, test_det_masks.shape))
         print()
 
     train_det = np_utils.to_categorical(train_det_masks, 2)
+    train_cls = np_utils.to_categorical(train_cls_masks, 5)
     print('train_det: {}'.format(train_det.shape))
     #train_det = reshape_mask(train_det_masks, train_det, 2)
 
     valid_det = np_utils.to_categorical(valid_det_masks, 2)
+    valid_cls = np_utils.to_categorical(valid_cls_masks, 5)
     #valid_det = reshape_mask(valid_det_masks, valid_det, 2)
 
     test_det = np_utils.to_categorical(test_det_masks, 2)
@@ -532,21 +635,19 @@ def data_prepare(print_image_shape=False, print_input_shape=False):
 
     if print_input_shape:
         print('input shape print below: ')
-        print('train_imgs: {}, train_det: {}'.format(train_imgs.shape, train_det.shape))
-        print('valid_imgs: {}, valid_det: {}'.format(valid_imgs.shape, valid_det.shape))
+        print('train_imgs: {}, train_det: {}, train_cls: {}'.format(train_imgs.shape, train_det.shape, train_cls.shape))
+        print('valid_imgs: {}, valid_det: {}, valid_cls: {}'.format(valid_imgs.shape, valid_det.shape, valid_cls.shape))
         print('test_imgs: {}, test_det: {}'.format(test_imgs.shape, test_det.shape))
         print()
-    return [train_imgs, train_det,valid_imgs, valid_det,  test_imgs, test_det]
+    return [train_imgs, train_det, valid_imgs, valid_det, train_cls, valid_cls]
 
 
-def fcn_detnet_focal_model_compile(nn, det_loss_weight,
+def cls_focal_compile(nn, cls_loss_weight,
                          optimizer, summary=False,
                          fkg_smooth_factor=None,
                          bkg_smooth_factor=None):
 
-    loss_input = detection_double_focal_loss_K(det_loss_weight,
-                                               fkg_smooth_factor,
-                                               bkg_smooth_factor)
+    loss_input = cls_cross_entropy(cls_loss_weight)
     nn.compile(optimizer=optimizer,
                       loss=loss_input,
                       metrics=['accuracy'])
@@ -579,9 +680,10 @@ def set_fcn36_num_step_and_aug():
     NUM_TO_AUG,TRAIN_STEP_PER_EPOCH = 3, 135
     return NUM_TO_AUG, TRAIN_STEP_PER_EPOCH
 
+
 def generator(features, det_labels, batch_size):
     batch_features = np.zeros((batch_size, 256, 256, 3))
-    batch_det_labels = np.zeros((batch_size, 256, 256, 2))
+    batch_det_labels = np.zeros((batch_size, 256, 256, 5))
     while True:
         counter = 0
         for i in range(batch_size):
@@ -592,6 +694,7 @@ def generator(features, det_labels, batch_size):
             batch_det_labels[counter] = det_label_index
             counter = counter + 1
         yield batch_features, batch_det_labels
+
 
 class Score(Callback):
     """Tracking time spend on each epoch as well as whole training process.
@@ -609,7 +712,6 @@ class Score(Callback):
             print('P: {}, R: {}, F1: {}'.format(p, r, f))
 
 
-
 if __name__ == '__main__':
    # if Config.gpu_count == 1:
        # os.environ["CUDA_VISIBLE_DEVICES"] = Config.gpu1
@@ -625,44 +727,42 @@ if __name__ == '__main__':
     STEP_PER_EPOCH = int(len(data[0]) / BATCH_SIZE)
     print('batch size is :', BATCH_SIZE)
     if Config.gpu_count != 1:
-        multi_gpu_fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
-        #print('l2 weight is using {}'.format(l2weight))
-        hyper = '{}_gpus:{}_det:0.13_fkg:0.5_bkg:0.5_lr:0.01'.format('det_celld', Config.gpu_count)  # _l2:{}_bkg:{}'.format()
-        tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
-        timer = TimerCallback()
-        print(hyper)
-        print()
-        model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
-        if not os.path.exists(model_weights_saver):
-            fcn_detnet_model = fcn_detnet_focal_model_compile(nn=multi_gpu_fcn_detnet ,
-                                                              summary=Config.summary,
-                                                              det_loss_weight=np.array(
-                                                                  [0.13, 0.87]),
-                                                              optimizer=optimizer,
-                                                              fkg_smooth_factor=0.5,
-                                                              bkg_smooth_factor=0.5)
-            print('{} gpu fcn36 focal detection is training'.format(Config.gpu_count))
+        fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
+    for i, epi_weight in enumerate(hyper_para[5]):
+        for j, fib_weight in enumerate(hyper_para[6]):
+            for x, inf_weight in enumerate(hyper_para[7]):
+                for v, other_weight in enumerate(hyper_para[8]):
+                    hyper = '{}_gpus:{}_epi:{}_fib:{}_inf:{}_other:{}_lr:0.01'.format('cls_cellmodel', str(Config.gpu_count),
+                                                                                 epi_weight, fib_weight,
+                                                                                 inf_weight, other_weight)
 
-            #list_callback = callback_preparation(fcn_detnet, hyper)
-            #list_callback.append(LearningRateScheduler(lr_scheduler))
-            score = Score()
-            #score.set_model(fcn_detnet)
-            #list_callback.append(Score)
-            fcn_detnet_model.fit_generator(generator(data[0],
-                                                     data[1],
-                                                     batch_size=BATCH_SIZE),
-                                           epochs=EPOCHS,
-                                           steps_per_epoch=STEP_PER_EPOCH,
-                                           validation_data=generator(
-                                               data[2], data[3], batch_size=BATCH_SIZE),
-                                           validation_steps=3,
-                                           callbacks=[timer, tensorboard_callback, earlystop_callback,
-                                                      LearningRateScheduler(lr_scheduler)])
-            model_json = fcn_detnet.to_json()
-            with open(os.path.join(JSON_DIR, hyper + '.json'), 'w') as json_file:
-                json_file.write(model_json)
-            fcn_detnet.save_weights(model_weights_saver)
-            print(hyper + 'has been saved')
-########################
-# with focal loss
-########################
+                    tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
+                    timer = TimerCallback()
+                    print(hyper)
+                    print()
+                    model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
+                    cls_loss = np.array([0.5, i, j, x, v])
+                    if not os.path.exists(model_weights_saver):
+                        fcn_detnet_model = cls_focal_compile(nn=fcn_detnet,cls_loss_weight=cls_loss, optimizer=optimizer)
+                        print('{} gpu fcn36 focal detection is training'.format(Config.gpu_count))
+
+                        #list_callback = callback_preparation(fcn_detnet, hyper)
+                        #list_callback.append(LearningRateScheduler(lr_scheduler))
+                        score = Score()
+                        #score.set_model(fcn_detnet)
+                        #list_callback.append(Score)
+                        fcn_detnet_model.fit_generator(generator(data[0],
+                                                                 data[4],
+                                                                 batch_size=BATCH_SIZE),
+                                                       epochs=EPOCHS,
+                                                       steps_per_epoch=STEP_PER_EPOCH,
+                                                       validation_data=generator(
+                                                           data[2], data[5], batch_size=BATCH_SIZE),
+                                                       validation_steps=3,
+                                                       callbacks=[timer, tensorboard_callback, earlystop_callback,
+                                                                  LearningRateScheduler(lr_scheduler)])
+                        model_json = fcn_detnet.to_json()
+                        with open(os.path.join(JSON_DIR, hyper + '.json'), 'w') as json_file:
+                            json_file.write(model_json)
+                        fcn_detnet.save_weights(model_weights_saver)
+                        print(hyper + 'has been saved')

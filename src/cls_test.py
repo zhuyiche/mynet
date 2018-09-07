@@ -18,6 +18,7 @@ if ROOT_DIR.endswith('src'):
 
 WEIGHT_DIR = os.path.join(ROOT_DIR, 'model_weights')
 IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'train')
+TEST_IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'test')
 #IMG_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det', 'test')
 epsilon = 1e-6
 
@@ -136,7 +137,6 @@ def get_metrics(gt, pred, r=6):
         return precision, recall, f1_score, tp, gt_num, pred_num
 
 
-
 def eval_single_img(model, img_dir, print_img=True,
                     prob_threshold=None, print_single_result=True):
     image_path = os.path.join(IMG_DIR, img_dir, img_dir+ '.bmp')
@@ -165,7 +165,7 @@ def eval_single_img(model, img_dir, print_img=True,
         plt.show()
     #print(output.shape)
 
-    epi_p, epi_r, epi_f1, epi_tp, epi_gt, epi_prednum = cls_score_single_img(output3, img_dir=img_dir, type='epi',
+    epi_p, epi_r, epi_f1, epi_tp, epi_gt, epi_prednum = cls_score_single_img(output4, img_dir=img_dir, type='epi',
                                                                              prob_threshold=prob_threshold,
                                                                              print_single_result=print_single_result)
     fib_p, fib_r, fib_f1, fib_tp, fib_gt, fib_prednum = cls_score_single_img(output2, img_dir=img_dir,
@@ -315,14 +315,116 @@ def test_11(model):
     print('Over test set, the average P: {}, R: {}, F1: {}, TP: {}'.format(p, r, f1, tp))
 
 
+def MyMetrics(model, weight):
+    def _get_metrics(gt, pred, r=6):
+        # calculate precise, recall and f1 score
+        gt = np.array(gt).astype('int')
+        if pred == []:
+            if gt.shape[0] == 0:
+                return 1, 1, 1, 0
+            else:
+                return 0, 0, 0, 0
+
+        pred = np.array(pred).astype('int')
+
+        temp = np.concatenate([gt, pred])
+
+        if temp.shape[0] != 0:
+            x_max = np.max(temp[:, 0]) + 1
+            y_max = np.max(temp[:, 1]) + 1
+
+            # gt_map = np.zeros((y_max, x_max), dtype='int')
+            gt_map = np.zeros((500, 500), dtype='int')
+            for i in range(gt.shape[0]):
+                x = gt[i, 0]
+                y = gt[i, 1]
+                x1 = max(0, x - r)
+                y1 = max(0, y - r)
+                x2 = min(x_max, x + r)
+                y2 = min(y_max, y + r)
+                gt_map[y1:y2, x1:x2] = 1
+                # cv2.circle(gt_map, (x, y), r, 1, -1)
+            # pred_map = np.zeros((y_max, x_max), dtype='int')
+            pred_map = np.zeros((500, 500), dtype='int')
+            for i in range(pred.shape[0]):
+                x = pred[i, 0]
+                y = pred[i, 1]
+                pred_map[y, x] = 1
+
+            result_map = gt_map * pred_map
+            tp = result_map.sum()
+
+            precision = tp / (pred.shape[0] + epsilon)
+            recall = tp / (gt.shape[0] + epsilon)
+            f1_score = 2 * (precision * recall / (precision + recall + epsilon))
+
+            return precision, recall, f1_score, tp
+    model.load_weights(weight)
+    path = TEST_IMG_DIR
+    tp_num = 0
+    gt_num = 0
+    pred_num = 0
+    precision = 0
+    recall = 0
+    f1_score = 0
+    type_group = ['epithelial', 'fibroblast', 'inflammatory', 'others']
+    for i in range(81, 101):
+        file_name = os.path.join(path, 'img' + str(i))
+        filename = os.path.join(file_name, 'img' + str(i) + '.bmp')
+
+        if os.path.exists(filename):
+            gtpath = './CRCHistoPhenotypes_2016_04_28/Classification'
+            imgname = 'img' + str(i)
+            img = misc.imread(filename)
+            img = misc.imresize(img, (256, 256))
+            img = img - 128.
+            img = img / 128.
+            print(img.shape)
+            img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
+            print(img.shape)
+            #img = np.transpose(img, (0, 3, 1, 2))
+            #img = torch.Tensor(img).cuda()
+            result = model.predict(img)
+            #result = result.cpu().detach().numpy()
+            result = result[0]
+            print(result.shape)
+            #result = np.exp(result)
+            for j in range(1, 5):
+                result_tmp = result[:, :, j]
+                result_tmp = misc.imresize(result_tmp, (500, 500))
+                result_tmp = result_tmp / 255.
+                boxes = non_max_suppression(result_tmp, prob_thresh=0.2)
+                matname = imgname + '_' + type_group[j-1] + '.mat'
+                matpath = os.path.join(file_name, matname)
+                gt = sio.loadmat(matpath)['detection']
+                pred = []
+                for k in range(boxes.shape[0]):
+                    x1 = boxes[k, 0]
+                    y1 = boxes[k, 1]
+                    x2 = boxes[k, 2]
+                    y2 = boxes[k, 3]
+                    cx = int(x1 + (x2 - x1) / 2)
+                    cy = int(y1 + (y2 - y1) / 2)
+                    pred.append([cx, cy])
+                p, r, f1, tp = _get_metrics(gt, pred)
+                print('img{} f1: {}'.format(str(i), f1) )
+                tp_num += tp
+                gt_num += gt.shape[0]
+                pred_num += np.array(pred).shape[0]
+    precision = tp_num / (pred_num + epsilon)
+    recall = tp_num / (gt_num + epsilon)
+    f1_score = 2 * (precision * recall / (precision + recall + epsilon))
+
+    return precision, recall, f1_score
+
 if __name__ == '__main__':
-    #model = Fcn_det().fcn36_deconv_backbone()
-    #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
-    #test_11(model)
-    import time
-    #os.environ["CUDA_VISIBLE_DEVICES"] = str(Config.gpu1)
-    start = time.time()
-    #weight_path = 'focal_double_resnet50_loss:fd_det:0.1_fkg:2_bkg:2_lr:0.01_train.h5'
+    model = Fcn_det().relufirst_fcn36_deconv_backbone()
+    for weight in os.listdir(WEIGHT_DIR):
+        print(weight)
+        weightp = os.path.join(WEIGHT_DIR, weight)
+        p, r, f1 = MyMetrics(model, weightp)
+        print('total p: {}, total r: {}, total f1: {}'.format(p, r, f1))
+    """
     imgdir = 'img' + str(2)
 
     model = Fcn_det().relufirst_fcn36_deconv_backbone()
@@ -340,7 +442,7 @@ if __name__ == '__main__':
             print('The nms threshold is ', prob)
             eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
 
-
+"""
 
 
 

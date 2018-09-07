@@ -13,7 +13,7 @@ from keras.regularizers import l2
 from util import set_gpu, set_num_step_and_aug, lr_scheduler, aug_on_fly, heavy_aug_on_fly
 import os, time
 from image_augmentation import ImageCropping
-from loss import detection_focal_loss_K, detection_loss_K, detection_double_focal_loss_K, detection_double_focal_loss_indicator_K
+from loss import detection_double_focal_loss_K
 from config import Config
 from tensorflow.python.client import device_lib
 #from encoder_append import
