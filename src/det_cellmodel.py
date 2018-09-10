@@ -15,7 +15,7 @@ from config import Config
 from tensorflow.python.client import device_lib
 #from encoder_decoder_object_det import Conv3l2
 from util import *
-from encoder_decoder_object_det import callback_preparation, crop_shape_generator_with_heavy_aug, TimerCallback
+from encoder_decoder_object_det import TimerCallback
 import scipy.misc as misc
 from eval import mymetrics
 
@@ -30,6 +30,7 @@ DATA_DIR = os.path.join(ROOT_DIR, 'aug')
 #CROP_DATA_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det')
 TENSORBOARD_DIR = os.path.join(ROOT_DIR, 'tensorboard_logs')
 CHECKPOINT_DIR = os.path.join(ROOT_DIR, 'checkpoint')
+DET_CKPT = os.path.join(CHECKPOINT_DIR, 'det_checkpoint')
 #WEIGHTS_DIR = os.path.join(ROOT_DIR, 'model_weights')
 WEIGHTS_DIR = os.path.join(ROOT_DIR, 'model_weights', 'det_modelweights')
 JSON_DIR = os.path.join(ROOT_DIR, 'json')
@@ -570,15 +571,6 @@ def multi_callback_preparation(model, hyper):
     return [tensorboard_callback, earlystop_callback]
 
 
-def set_fcn36_num_step_and_aug():
-    """
-    Because the size of image is big and it would store in computation graph for doing back propagation,
-    we set different augmentation number and training step depends on which struture we are using.
-    :return:
-    """
-    NUM_TO_AUG,TRAIN_STEP_PER_EPOCH = 3, 135
-    return NUM_TO_AUG, TRAIN_STEP_PER_EPOCH
-
 def generator(features, det_labels, batch_size):
     batch_features = np.zeros((batch_size, 256, 256, 3))
     batch_det_labels = np.zeros((batch_size, 256, 256, 2))
@@ -592,6 +584,7 @@ def generator(features, det_labels, batch_size):
             batch_det_labels[counter] = det_label_index
             counter = counter + 1
         yield batch_features, batch_det_labels
+
 
 class Score(Callback):
     """Tracking time spend on each epoch as well as whole training process.
@@ -609,7 +602,6 @@ class Score(Callback):
             print('P: {}, R: {}, F1: {}'.format(p, r, f))
 
 
-
 if __name__ == '__main__':
    # if Config.gpu_count == 1:
        # os.environ["CUDA_VISIBLE_DEVICES"] = Config.gpu1
@@ -617,52 +609,54 @@ if __name__ == '__main__':
     earlystop_callback = EarlyStopping(monitor='val_loss',
                                    patience=5,
                                    min_delta=0.001)
+    checkpoints = ModelCheckpoint(DET_CKPT, period=1, save_best_only=True, monitor='val_loss')
     hyper_para = fcn_tune_loss_weight()
     BATCH_SIZE = Config.image_per_gpu * Config.gpu_count
     EPOCHS = Config.epoch
     data = data_prepare(print_input_shape=True, print_image_shape=True)
     optimizer = SGD(lr=0.01, decay=0.00001, momentum=0.9, nesterov=True)
-    STEP_PER_EPOCH = int(len(data[0]) / BATCH_SIZE)
+    TRAIN_STEP_PER_EPOCH = int(len(data[0]) / BATCH_SIZE)
+    VALID_STEP_PER_EPOCH = int(len(data[2]) / BATCH_SIZE)
     print('batch size is :', BATCH_SIZE)
     if Config.gpu_count != 1:
-        multi_gpu_fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
+        fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
         #print('l2 weight is using {}'.format(l2weight))
-        hyper = '{}_gpus:{}_det:0.13_fkg:0.5_bkg:0.5_lr:0.01'.format('det_celld', Config.gpu_count)  # _l2:{}_bkg:{}'.format()
-        tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
-        timer = TimerCallback()
-        print(hyper)
-        print()
-        model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
-        if not os.path.exists(model_weights_saver):
-            fcn_detnet_model = fcn_detnet_focal_model_compile(nn=multi_gpu_fcn_detnet ,
-                                                              summary=Config.summary,
-                                                              det_loss_weight=np.array(
-                                                                  [0.13, 0.87]),
-                                                              optimizer=optimizer,
-                                                              fkg_smooth_factor=0.5,
-                                                              bkg_smooth_factor=0.5)
-            print('{} gpu fcn36 focal detection is training'.format(Config.gpu_count))
+    hyper = '{}_gpus:{}_det:0.13_fkg:0.5_bkg:0.5_lr:0.01'.format('det_celld', Config.gpu_count)  # _l2:{}_bkg:{}'.format()
+    tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
+    timer = TimerCallback()
+    print(hyper)
+    print()
+    model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
+    if not os.path.exists(model_weights_saver):
+        fcn_detnet_model = fcn_detnet_focal_model_compile(nn=fcn_detnet ,
+                                                          summary=Config.summary,
+                                                          det_loss_weight=np.array(
+                                                              [0.13, 0.87]),
+                                                          optimizer=optimizer,
+                                                          fkg_smooth_factor=0.5,
+                                                          bkg_smooth_factor=0.5)
+        print('{} gpu fcn36 focal detection is training'.format(Config.gpu_count))
 
-            #list_callback = callback_preparation(fcn_detnet, hyper)
-            #list_callback.append(LearningRateScheduler(lr_scheduler))
-            score = Score()
-            #score.set_model(fcn_detnet)
-            #list_callback.append(Score)
-            fcn_detnet_model.fit_generator(generator(data[0],
-                                                     data[1],
-                                                     batch_size=BATCH_SIZE),
-                                           epochs=EPOCHS,
-                                           steps_per_epoch=STEP_PER_EPOCH,
-                                           validation_data=generator(
-                                               data[2], data[3], batch_size=BATCH_SIZE),
-                                           validation_steps=3,
-                                           callbacks=[timer, tensorboard_callback, earlystop_callback,
-                                                      LearningRateScheduler(lr_scheduler)])
-            model_json = fcn_detnet.to_json()
-            with open(os.path.join(JSON_DIR, hyper + '.json'), 'w') as json_file:
-                json_file.write(model_json)
-            fcn_detnet.save_weights(model_weights_saver)
-            print(hyper + 'has been saved')
+        #list_callback = callback_preparation(fcn_detnet, hyper)
+        #list_callback.append(LearningRateScheduler(lr_scheduler))
+        score = Score()
+        #score.set_model(fcn_detnet)
+        #list_callback.append(Score)
+        fcn_detnet_model.fit_generator(generator(data[0],
+                                                 data[1],
+                                                 batch_size=BATCH_SIZE),
+                                       epochs=EPOCHS,
+                                       steps_per_epoch=TRAIN_STEP_PER_EPOCH,
+                                       validation_data=generator(
+                                           data[2], data[3], batch_size=BATCH_SIZE),
+                                       validation_steps=1,
+                                       callbacks=[timer, tensorboard_callback, earlystop_callback,
+                                                  LearningRateScheduler(lr_scheduler)])
+        model_json = fcn_detnet.to_json()
+        with open(os.path.join(JSON_DIR, hyper + '.json'), 'w') as json_file:
+            json_file.write(model_json)
+        fcn_detnet.save_weights(model_weights_saver)
+        print(hyper + 'has been saved')
 ########################
 # with focal loss
 ########################
