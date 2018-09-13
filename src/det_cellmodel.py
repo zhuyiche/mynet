@@ -619,7 +619,7 @@ if __name__ == '__main__':
     VALID_STEP_PER_EPOCH = int(len(data[2]) / BATCH_SIZE)
     print('batch size is :', BATCH_SIZE)
     if Config.gpu_count != 1:
-        fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
+        multi_fcn_detnet = keras.utils.multi_gpu_model(fcn_detnet, gpus=Config.gpu_count)
         #print('l2 weight is using {}'.format(l2weight))
     hyper = '{}_gpus:{}_det:0.13_fkg:0.5_bkg:0.5_lr:0.01'.format('det_celld', Config.gpu_count)  # _l2:{}_bkg:{}'.format()
     tensorboard_callback = TensorBoard(os.path.join(TENSORBOARD_DIR, hyper + '_tb_logs'))
@@ -628,7 +628,7 @@ if __name__ == '__main__':
     print()
     model_weights_saver = os.path.join(WEIGHTS_DIR, hyper + '_train.h5')
     if not os.path.exists(model_weights_saver):
-        fcn_detnet_model = fcn_detnet_focal_model_compile(nn=fcn_detnet ,
+        fcn_detnet_model = fcn_detnet_focal_model_compile(nn=multi_fcn_detnet,
                                                           summary=Config.summary,
                                                           det_loss_weight=np.array(
                                                               [0.13, 0.87]),

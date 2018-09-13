@@ -1,14 +1,8 @@
-from encoder_decoder_object_det import Detnet
-import scipy.misc as misc
-import numpy as np
 import matplotlib.pyplot as plt
-import os
-from config import Config
-#from metric import non_max_suppression, get_metrics
 import scipy.io as sio
-import cv2
 from encoder_append import *
-from eval import mymetrics
+
+import det_cellmodel
 
 weight_path = 'multi_fcn36_loss:fd_det:0.13_fkg:0.5_bkg:0.5_lr:0.01_train.h5'
 ROOT_DIR = os.getcwd()
@@ -18,7 +12,6 @@ if ROOT_DIR.endswith('src'):
 WEIGHT_DIR = os.path.join(ROOT_DIR, 'model_weights', 'det_modelweights')
 IMG_DIR = os.path.join(ROOT_DIR, 'CRCHistoPhenotypes_2016_04_28', 'cls_and_det', 'test')
 JSON_DIR = os.path.join(ROOT_DIR, 'json')
-#IMG_DIR = os.path.join(ROOT_DIR, 'crop_cls_and_det', 'test')
 epsilon = 1e-6
 
 def non_max_suppression(img, overlap_thresh=0.3, max_boxes=1200, r=8, prob_thresh=0.6):  # net_4_w6_di2.pkl
@@ -229,41 +222,39 @@ def test_11(model):
 
 
 if __name__ == '__main__':
-    import time
-    #os.environ["CUDA_VISIBLE_DEVICES"] = str(Config.gpu1)
-    start = time.time()
-    #weight_path = 'focal_double_resnet50_loss:fd_det:0.1_fkg:2_bkg:2_lr:0.01_train.h5'
-    imgdir = 'img' + str(2)
-    model = Fcn_det().relufirst_fcn36_deconv_backbone()
-    #eval_weights_testset(WEIGHT_DIR)
+    #model = Fcn_det().relufirst_fcn36_deconv_backbone()
     for weight in os.listdir(WEIGHT_DIR):
-        weight_prefix, name = weight.split('.')
-        for json_model in os.listdir(JSON_DIR):
-            if weight_prefix in json_model:
-                print('s')
-                #model
-        print(weight)
-        weightp = os.path.join(WEIGHT_DIR, weight)
-        model.load_weights(weightp)
-    #model.load_weights(os.path.join(WEIGHT_DIR, weight_path))
-        prob_threshhold = [0.1, 0.15, 0.2, 0.22, 0.25, 0.28, 0.3, 0.32, 0.35, 0.38, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
-        #eval_single_img(model, imgdir)
-        best_f1 = 0
-        best_tf = 0
-        best_p, best_r, best_tp, best_tr, best_tpp = 0, 0, 0, 0, 0
-        best_pppp, best_pppppp=0, 0
-        for prob in prob_threshhold:
-            ##print('The nms threshold is ', prob)
-            p, r ,f1, tp, tr, tf, tpp= eval_testset(model, prob_threshold=prob, print_img=False, print_single_result=False)
-            if best_f1 == 0:
-                best_f1, best_tf = f1, tf
-            else:
-                if f1 > best_f1:
-                    best_p, best_r, best_f1, best_tpp, best_pppp = p, r, f1, tpp, prob
-                if tf > best_tf:
-                    best_tp, best_tr, best_tf, best_pppppp = tp, tr, tf, prob
-        print('The best point score is p: {}, r: {}, f1: {} at prob: {}'.format(best_p, best_r, best_f1, best_pppp))
-        print('The best average score is p: {}, r: {}, f1: {} at prob: {}'.format(best_tp, best_tr, best_tf, best_pppppp))
+        weight_prefix, name = weight.split('_train.h5')
+        print(weight_prefix)
+        #for json_model in os.listdir(JSON_DIR):
+         #   json_prefix, jsonname = json_model.split('.json')
+          #  print('json_prefix:{}'.format(json_prefix))
+        if 'multi_fcn36' in weight_prefix: #json_prefix:
+            print(weight_prefix)
+            #json_file = open(os.path.join(JSON_DIR, weight_prefix+'.json'), 'r')
+            #loaded_model_json = json_file.read()
+            #json_file.close()
+            loaded_model = det_cellmodel.Fcn_det().relufirst_fcn36_deconv_backbone()
+            weightp = os.path.join(WEIGHT_DIR, weight)
+            loaded_model.load_weights(weightp)
+            prob_threshhold = [0.1, 0.15, 0.2, 0.22, 0.25, 0.28, 0.3, 0.32, 0.35, 0.38, 0.4,0.43, 0.45, 0.48, 0.5,0.52,0.55,0.58, 0.60,0.62,0.65, 0.7, 0.8, 0.9]
+            #eval_single_img(model, imgdir)
+            best_f1 = 0
+            best_tf = 0
+            best_p, best_r, best_tp, best_tr, best_tpp = 0, 0, 0, 0, 0
+            best_pppp, best_pppppp=0, 0
+            for prob in prob_threshhold:
+                ##print('The nms threshold is ', prob)
+                p, r ,f1, tp, tr, tf, tpp = eval_testset(loaded_model, prob_threshold=prob, print_img=False, print_single_result=False)
+                if best_f1 == 0:
+                    best_f1, best_tf = f1, tf
+                else:
+                    if f1 > best_f1:
+                        best_p, best_r, best_f1, best_tpp, best_pppp = p, r, f1, tpp, prob
+                    if tf > best_tf:
+                        best_tp, best_tr, best_tf, best_pppppp = tp, tr, tf, prob
+            print('The best point score is p: {}, r: {}, f1: {} at prob: {}'.format(best_p, best_r, best_f1, best_pppp))
+            print('The best average score is p: {}, r: {}, f1: {} at prob: {}'.format(best_tp, best_tr, best_tf, best_pppppp))
 
 
 
