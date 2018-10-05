@@ -701,7 +701,7 @@ if __name__ == '__main__':
                                            validation_steps=1,
                                            callbacks=[timer, tensorboard_callback,
                                                       checkpoint_callback, # this callback can only be used in single gpu setting
-                                                      score,
+                                                      #score,
                                                       earlystop_callback,
                                                       LearningRateScheduler(lr_scheduler)])
             model_json = fcn_detnet_model.to_json()
