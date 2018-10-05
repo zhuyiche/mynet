@@ -125,44 +125,44 @@ def get_metrics(gt, pred, r=6):
 
 def mymetrics(model):
     import tensorflow as tf
-    with tf.device('/cpu:0'):
-        tp_num = 0
-        gt_num = 0
-        pred_num = 0
+    tp_num = 0
+    gt_num = 0
+    pred_num = 0
 
-        for file in enumerate(os.listdir(os.path.join(TEST_DATA_DIR, 'test'))):
-            #print(os.path.join(TEST_DATA_DIR, 'test'))
-            #print(file[-1])
-            file_path = os.path.join(TEST_DATA_DIR, 'test', str(file[-1]))
-            #print(os.path.join(file_path, str(file[-1]) + '.bmp'))
-            img = misc.imread(os.path.join(file_path, str(file[-1]) + '.bmp'))
-            img = misc.imresize(img, (256, 256))
-            img = img - 128.
-            img = img / 128.
-            img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
-            print(img.shape)
-            result = model.predict(np.array(img))
-            result = misc.imresize(result, (500, 500))
-            result = result / 255.
-            boxes = non_max_suppression(result)
-            print('nms finises')
-            gt = sio.loadmat(os.path.join(file_path, str(file) + 'detection.mat'))['detection']
-            pred = []
-            for i in range(boxes.shape[0]):
-                x1 = boxes[i, 0]
-                y1 = boxes[i, 1]
-                x2 = boxes[i, 2]
-                y2 = boxes[i, 3]
-                cx = int(x1 + (x2 - x1) / 2)
-                cy = int(y1 + (y2 - y1) / 2)
-                pred.append([cx, cy])
-            p, r, f1, tp = get_metrics(gt, pred)
-            tp_num += tp
-            gt_num += gt.shape[0]
-            pred_num += np.array(pred).shape[0]
-            print('good')
-            precision = tp_num / (pred_num + epsilon)
-            recall = tp_num / (gt_num + epsilon)
-            f1_score = 2 * (precision * recall / (precision + recall + epsilon))
+    for file in enumerate(os.listdir(os.path.join(TEST_DATA_DIR, 'test'))):
+        #print(os.path.join(TEST_DATA_DIR, 'test'))
+        #print(file[-1])
+        file_path = os.path.join(TEST_DATA_DIR, 'test', str(file[-1]))
+        #print(os.path.join(file_path, str(file[-1]) + '.bmp'))
+        img = misc.imread(os.path.join(file_path, str(file[-1]) + '.bmp'))
+        img = misc.imresize(img, (256, 256))
+        img = img - 128.
+        img = img / 128.
+        img = img.reshape((1, img.shape[0], img.shape[1], img.shape[2]))
+        print(img.shape)
+        result = model.predict(np.array(img))
+        print('result.shape: {}'.format(result.shape))
+        result = misc.imresize(result, (500, 500))
+        result = result / 255.
+        boxes = non_max_suppression(result)
+        print('nms finises')
+        gt = sio.loadmat(os.path.join(file_path, str(file) + 'detection.mat'))['detection']
+        pred = []
+        for i in range(boxes.shape[0]):
+            x1 = boxes[i, 0]
+            y1 = boxes[i, 1]
+            x2 = boxes[i, 2]
+            y2 = boxes[i, 3]
+            cx = int(x1 + (x2 - x1) / 2)
+            cy = int(y1 + (y2 - y1) / 2)
+            pred.append([cx, cy])
+        p, r, f1, tp = get_metrics(gt, pred)
+        tp_num += tp
+        gt_num += gt.shape[0]
+        pred_num += np.array(pred).shape[0]
+        print('good')
+        precision = tp_num / (pred_num + epsilon)
+        recall = tp_num / (gt_num + epsilon)
+        f1_score = 2 * (precision * recall / (precision + recall + epsilon))
 
         return precision, recall, f1_score
