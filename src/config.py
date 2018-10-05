@@ -24,8 +24,10 @@ class Config(object):
     parser.add_argument("--data", default='crop', type=str)
     parser.add_argument("--det_weight", type=float, default=0.1)
     parser.add_argument("--opt", default='sgd', type=str)
+    parser.add_argument("--aug", default=10, type=int)
     args = parser.parse_args()
     det_weight = args.det_weight
+    aug = args.aug
     backbone = args.backbone
     data=args.data
     loss_backend = args.loss_backend
