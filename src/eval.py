@@ -142,7 +142,7 @@ def mymetrics(model):
         print(img.shape)
         result = model.predict(np.array(img))
         print('result.shape: {}'.format(result.shape))
-        result = misc.imresize(result, (500, 500))
+        result = misc.imresize(result, (500, 500, 2))
         result = result / 255.
         boxes = non_max_suppression(result)
         print('nms finises')
